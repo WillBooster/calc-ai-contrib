@@ -1,1 +1,1 @@
-console.log('Hi');
+export * from './github-pr-analyzer.js';
