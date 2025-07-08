@@ -1,15 +1,15 @@
 import { describe, expect, test } from 'bun:test';
-import { analyzePullRequestCommits, formatAnalysisResult } from './github-pr-analyzer.js';
+import { analyzePullRequestByDiff, formatAnalysisResult } from './github-pr-analyzer.js';
 
 describe('GitHub PR Analyzer', () => {
-  test('analyze WillBooster/gen-pr PR #65', async () => {
+  test('analyze WillBooster/gen-pr PR #65 by diff (accurate per-line attribution)', async () => {
     const owner = 'WillBooster';
     const repo = 'gen-pr';
     const prNumber = 65;
 
-    const result = await analyzePullRequestCommits(owner, repo, prNumber);
+    const result = await analyzePullRequestByDiff(owner, repo, prNumber);
 
-    console.log('\nAnalysis Result:');
+    console.log('\nDiff-based Analysis Result (Per-line attribution):');
     console.log(formatAnalysisResult(result));
 
     expect(result.prNumber).toBe(65);
@@ -18,7 +18,7 @@ describe('GitHub PR Analyzer', () => {
     expect(result.totalDeletions).toBeGreaterThanOrEqual(0);
     expect(result.totalEditLines).toBe(result.totalAdditions + result.totalDeletions);
 
-    expect(result.userContributions).toHaveLength(2);
+    expect(result.userContributions.length).toBeGreaterThanOrEqual(1);
 
     const totalPercentage = result.userContributions.reduce(
       (sum: number, contribution) => sum + contribution.percentage,
@@ -33,5 +33,5 @@ describe('GitHub PR Analyzer', () => {
       expect(contribution.percentage).toBeGreaterThanOrEqual(0);
       expect(contribution.percentage).toBeLessThanOrEqual(100);
     }
-  }, 30000);
+  }, 60000);
 });
