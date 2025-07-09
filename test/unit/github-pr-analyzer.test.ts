@@ -45,6 +45,17 @@ describe('GitHub PR Analyzer', () => {
     for (const contribution of result.userContributions) {
       expect(contribution.user).toBeTruthy();
       expect(contribution.totalLines).toBe(contribution.additions + contribution.deletions);
+
+      // Verify that name and email fields exist (they may be undefined for some users)
+      expect(contribution).toHaveProperty('name');
+      expect(contribution).toHaveProperty('email');
     }
+
+    // Check that at least one user has name and email information
+    const hasNameInfo = result.userContributions.some((c) => c.name && c.name.length > 0);
+    const hasEmailInfo = result.userContributions.some((c) => c.email && c.email.length > 0);
+
+    expect(hasNameInfo).toBe(true);
+    expect(hasEmailInfo).toBe(true);
   }, 60000);
 });

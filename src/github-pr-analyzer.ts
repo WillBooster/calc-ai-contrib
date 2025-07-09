@@ -2,6 +2,8 @@ import { config } from 'dotenv';
 
 interface UserContribution {
   user: string;
+  name?: string;
+  email?: string;
   additions: number;
   deletions: number;
   totalLines: number;
@@ -25,6 +27,7 @@ interface GitHubCommit {
   commit: {
     author: {
       name: string;
+      email: string;
     };
   };
   files?: Array<{
@@ -56,7 +59,7 @@ export async function analyzePullRequest(owner: string, repo: string, prNumber: 
 
   let totalAdditions = 0;
   let totalDeletions = 0;
-  const userStats = new Map<string, { additions: number; deletions: number }>();
+  const userStats = new Map<string, { additions: number; deletions: number; name?: string; email?: string }>();
 
   console.log(`Analyzing ${files.length} changed files...`);
 
@@ -75,9 +78,21 @@ export async function analyzePullRequest(owner: string, repo: string, prNumber: 
     const fileContributors = distributeFileContributions(allCommits, file);
 
     for (const [author, stats] of fileContributors) {
-      const currentStats = userStats.get(author) || { additions: 0, deletions: 0 };
+      const currentStats = userStats.get(author) || {
+        additions: 0,
+        deletions: 0,
+        name: stats.name,
+        email: stats.email,
+      };
       currentStats.additions += stats.additions;
       currentStats.deletions += stats.deletions;
+      // Update name and email if not already set or if we have better information
+      if (!currentStats.name && stats.name) {
+        currentStats.name = stats.name;
+      }
+      if (!currentStats.email && stats.email) {
+        currentStats.email = stats.email;
+      }
       userStats.set(author, currentStats);
     }
   }
@@ -88,6 +103,8 @@ export async function analyzePullRequest(owner: string, repo: string, prNumber: 
   for (const [user, stats] of userStats) {
     userContributions.push({
       user,
+      name: stats.name,
+      email: stats.email,
       additions: stats.additions,
       deletions: stats.deletions,
       totalLines: stats.additions + stats.deletions,
@@ -124,8 +141,12 @@ export function formatAnalysisResult(result: PRAnalysisResult): string {
   ];
 
   for (const contribution of result.userContributions) {
+    const userInfo = contribution.user;
+    const nameInfo = contribution.name ? ` (${contribution.name})` : '';
+    const emailInfo = contribution.email ? ` <${contribution.email}>` : '';
+
     lines.push(
-      `${contribution.user}: ${contribution.percentage}% ` +
+      `${userInfo}${nameInfo}${emailInfo}: ${contribution.percentage}% ` +
         `(+${contribution.additions}, -${contribution.deletions}, ` +
         `total: ${contribution.totalLines})`
     );
@@ -153,8 +174,8 @@ async function getPRCommits(owner: string, repo: string, prNumber: number): Prom
 function distributeFileContributions(
   commits: GitHubCommit[],
   file: { filename: string; additions: number; deletions: number }
-): Map<string, { additions: number; deletions: number }> {
-  const contributions = new Map<string, { additions: number; deletions: number }>();
+): Map<string, { additions: number; deletions: number; name?: string; email?: string }> {
+  const contributions = new Map<string, { additions: number; deletions: number; name?: string; email?: string }>();
 
   if (commits.length === 0) {
     // Fallback: attribute to unknown
@@ -164,27 +185,39 @@ function distributeFileContributions(
 
   // Simple distribution: divide changes equally among all commit authors
   // This is a simplified approach that avoids excessive API calls
-  const authorsSet = new Set<string>();
+  const authorsMap = new Map<string, { name?: string; email?: string }>();
 
   for (const commit of commits) {
     const author = commit.author?.login || commit.commit?.author?.name || 'Unknown';
-    authorsSet.add(author);
+    const name = commit.commit?.author?.name;
+    const email = commit.commit?.author?.email;
+
+    // Store the first occurrence of name and email for each author
+    if (!authorsMap.has(author)) {
+      authorsMap.set(author, { name, email });
+    }
   }
 
-  const authors = Array.from(authorsSet);
+  const authors = Array.from(authorsMap.keys());
   const additionsPerAuthor = Math.floor(file.additions / authors.length);
   const deletionsPerAuthor = Math.floor(file.deletions / authors.length);
 
   // Distribute changes
   for (let i = 0; i < authors.length; i++) {
     const author = authors[i];
+    const authorInfo = authorsMap.get(author);
     const isLast = i === authors.length - 1;
 
     // Give remainder to last author
     const additions = isLast ? file.additions - additionsPerAuthor * (authors.length - 1) : additionsPerAuthor;
     const deletions = isLast ? file.deletions - deletionsPerAuthor * (authors.length - 1) : deletionsPerAuthor;
 
-    contributions.set(author, { additions, deletions });
+    contributions.set(author, {
+      additions,
+      deletions,
+      name: authorInfo?.name,
+      email: authorInfo?.email,
+    });
   }
 
   return contributions;
