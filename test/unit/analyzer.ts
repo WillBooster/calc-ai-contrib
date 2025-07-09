@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { analyzePullRequest } from '../../src/github-pr-analyzer.js';
+import { analyzePullRequest } from '../../src/analyzer.js';
 
 describe('GitHub PR Analyzer', () => {
   test('analyze WillBooster/gen-pr PR #65 by diff (accurate per-line attribution)', async () => {
