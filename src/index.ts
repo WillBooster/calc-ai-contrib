@@ -1,6 +1,6 @@
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import { analyzePullRequest, formatAnalysisResult } from './github-pr-analyzer.js';
+import { analyzePullRequest, formatAnalysisResult } from './analyzer.js';
 
 async function main() {
   try {
@@ -42,6 +42,4 @@ async function main() {
   }
 }
 
-if (import.meta.main) {
-  main();
-}
+await main();

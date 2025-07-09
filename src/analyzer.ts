@@ -1,4 +1,5 @@
 import { config } from 'dotenv';
+import { Octokit } from 'octokit';
 
 interface UserContribution {
   user: string;
@@ -18,44 +19,25 @@ interface PRAnalysisResult {
   userContributions: UserContribution[];
 }
 
-interface GitHubCommit {
-  sha: string;
-  url: string;
-  author?: {
-    login: string;
-  };
-  commit: {
-    author: {
-      name: string;
-      email: string;
-    };
-  };
-  files?: Array<{
-    filename: string;
-    additions: number;
-    deletions: number;
-  }>;
-}
-
 config();
 
-const headers: HeadersInit = {
-  Accept: 'application/vnd.github.v3+json',
-};
-if (process.env.GH_TOKEN) {
-  headers.Authorization = `token ${process.env.GH_TOKEN}`;
-}
+// Initialize Octokit with authentication
+const octokit = new Octokit({
+  auth: process.env.GH_TOKEN,
+});
+
+// Use Octokit's built-in types for commits
+type GitHubCommit = Awaited<ReturnType<typeof octokit.rest.pulls.listCommits>>['data'][0];
 
 export async function analyzePullRequest(owner: string, repo: string, prNumber: number): Promise<PRAnalysisResult> {
   // Get the files changed in the PR
-  const filesResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/files`, {
-    headers,
+  const filesResponse = await octokit.rest.pulls.listFiles({
+    owner,
+    repo,
+    pull_number: prNumber,
   });
-  if (!filesResponse.ok) {
-    throw new Error(`Failed to fetch PR files: ${filesResponse.status} ${filesResponse.statusText}`);
-  }
 
-  const files = await filesResponse.json();
+  const files = filesResponse.data;
 
   let totalAdditions = 0;
   let totalDeletions = 0;
@@ -157,15 +139,13 @@ export function formatAnalysisResult(result: PRAnalysisResult): string {
 
 async function getPRCommits(owner: string, repo: string, prNumber: number): Promise<GitHubCommit[]> {
   console.log('Making single API call to get PR commits...');
-  const commitsResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/commits`, {
-    headers,
+  const commitsResponse = await octokit.rest.pulls.listCommits({
+    owner,
+    repo,
+    pull_number: prNumber,
   });
 
-  if (!commitsResponse.ok) {
-    throw new Error(`Failed to fetch commits: ${commitsResponse.status}`);
-  }
-
-  const commits = await commitsResponse.json();
+  const commits = commitsResponse.data;
   console.log(`Retrieved ${commits.length} commits from API`);
 
   return commits;
