@@ -31,16 +31,16 @@ describe('GitHub PR Analyzer', () => {
     const botContrib = result.userContributions.find((c) => c.user === 'WillBooster-bot');
 
     expect(exkazuuContrib).toBeDefined();
-    expect(exkazuuContrib!.additions).toBe(106);
-    expect(exkazuuContrib!.deletions).toBe(47);
-    expect(exkazuuContrib!.totalLines).toBe(153);
-    expect(exkazuuContrib!.percentage).toBe(53);
+    expect(exkazuuContrib?.additions).toBe(106);
+    expect(exkazuuContrib?.deletions).toBe(47);
+    expect(exkazuuContrib?.totalLines).toBe(153);
+    expect(exkazuuContrib?.percentage).toBe(53);
 
     expect(botContrib).toBeDefined();
-    expect(botContrib!.additions).toBe(97);
-    expect(botContrib!.deletions).toBe(40);
-    expect(botContrib!.totalLines).toBe(137);
-    expect(botContrib!.percentage).toBe(47);
+    expect(botContrib?.additions).toBe(97);
+    expect(botContrib?.deletions).toBe(40);
+    expect(botContrib?.totalLines).toBe(137);
+    expect(botContrib?.percentage).toBe(47);
 
     for (const contribution of result.userContributions) {
       expect(contribution.user).toBeTruthy();
