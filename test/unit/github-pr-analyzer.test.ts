@@ -32,27 +32,15 @@ describe('GitHub PR Analyzer', () => {
     expect(exkazuuContrib?.deletions).toBe(47);
     expect(exkazuuContrib?.totalLines).toBe(153);
     expect(exkazuuContrib?.percentage).toBe(53);
+    expect(exkazuuContrib?.name).toBe('Sakamoto, Kazunori');
+    expect(exkazuuContrib?.email).toBe('exkazuu@gmail.com');
 
     expect(botContrib).toBeDefined();
     expect(botContrib?.additions).toBe(97);
     expect(botContrib?.deletions).toBe(40);
     expect(botContrib?.totalLines).toBe(137);
     expect(botContrib?.percentage).toBe(47);
-
-    for (const contribution of result.userContributions) {
-      expect(contribution.user).toBeTruthy();
-      expect(contribution.totalLines).toBe(contribution.additions + contribution.deletions);
-
-      // Verify that name and email fields exist (they may be undefined for some users)
-      expect(contribution).toHaveProperty('name');
-      expect(contribution).toHaveProperty('email');
-    }
-
-    // Check that at least one user has name and email information
-    const hasNameInfo = result.userContributions.some((c) => c.name && c.name.length > 0);
-    const hasEmailInfo = result.userContributions.some((c) => c.email && c.email.length > 0);
-
-    expect(hasNameInfo).toBe(true);
-    expect(hasEmailInfo).toBe(true);
+    expect(botContrib?.name).toBe('WillBooster Inc. (aider)');
+    expect(botContrib?.email).toBe('bot@willbooster.com');
   }, 60000);
 });
