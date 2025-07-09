@@ -1,4 +1,4 @@
-import { analyzePullRequestByDiff, formatAnalysisResult } from './github-pr-analyzer.js';
+import { analyzePullRequest, formatAnalysisResult } from './github-pr-analyzer.js';
 
 async function main() {
   try {
@@ -11,7 +11,7 @@ async function main() {
     console.log('Note: Set GH_TOKEN environment variable for higher rate limits.');
 
     // Token is automatically read from process.env.GH_TOKEN if not provided
-    const result = await analyzePullRequestByDiff(owner, repo, prNumber);
+    const result = await analyzePullRequest(owner, repo, prNumber);
 
     console.log(`\n${formatAnalysisResult(result)}`);
   } catch (error) {

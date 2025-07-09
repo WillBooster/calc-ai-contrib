@@ -36,30 +36,14 @@ interface GitHubCommit {
 
 config();
 
-export async function analyzePullRequestByDiff(
-  owner: string,
-  repo: string,
-  prNumber: number,
-  token?: string
-): Promise<PRAnalysisResult> {
-  const authToken = token || process.env.GH_TOKEN;
-
-  return await analyzePullRequest(owner, repo, prNumber, authToken);
+const headers: HeadersInit = {
+  Accept: 'application/vnd.github.v3+json',
+};
+if (process.env.GH_TOKEN) {
+  headers.Authorization = `token ${process.env.GH_TOKEN}`;
 }
 
-async function analyzePullRequest(
-  owner: string,
-  repo: string,
-  prNumber: number,
-  token?: string
-): Promise<PRAnalysisResult> {
-  const headers: HeadersInit = {
-    Accept: 'application/vnd.github.v3+json',
-  };
-  if (token) {
-    headers.Authorization = `token ${token}`;
-  }
-
+export async function analyzePullRequest(owner: string, repo: string, prNumber: number): Promise<PRAnalysisResult> {
   // Get the files changed in the PR
   const filesResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/files`, {
     headers,
@@ -78,7 +62,7 @@ async function analyzePullRequest(
 
   // Get all commits for the PR once (instead of per file)
   console.log('Fetching PR commits...');
-  const allCommits = await getPRCommits(owner, repo, prNumber, token);
+  const allCommits = await getPRCommits(owner, repo, prNumber);
   console.log(`Found ${allCommits.length} commits in PR`);
 
   // Simple approach: distribute file changes proportionally among commit authors
@@ -150,15 +134,7 @@ export function formatAnalysisResult(result: PRAnalysisResult): string {
   return lines.join('\n');
 }
 
-async function getPRCommits(owner: string, repo: string, prNumber: number, token?: string): Promise<GitHubCommit[]> {
-  const headers: HeadersInit = {
-    Accept: 'application/vnd.github.v3+json',
-  };
-
-  if (token) {
-    headers.Authorization = `token ${token}`;
-  }
-
+async function getPRCommits(owner: string, repo: string, prNumber: number): Promise<GitHubCommit[]> {
   console.log('Making single API call to get PR commits...');
   const commitsResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/commits`, {
     headers,
