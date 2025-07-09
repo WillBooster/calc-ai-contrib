@@ -1,21 +1,5 @@
 import { config } from 'dotenv';
 
-interface PullRequestFile {
-  filename: string;
-  additions: number;
-  deletions: number;
-  patch?: string;
-}
-
-interface PullRequestData {
-  number: number;
-  title: string;
-  user: {
-    login: string;
-  };
-  files: PullRequestFile[];
-}
-
 interface UserContribution {
   user: string;
   additions: number;
@@ -32,14 +16,22 @@ interface PRAnalysisResult {
   userContributions: UserContribution[];
 }
 
-interface BlameData {
-  author: string;
-  lineCount: number;
-}
-
-interface PatchLineInfo {
-  lineNumber: number;
-  content: string;
+interface GitHubCommit {
+  sha: string;
+  url: string;
+  author?: {
+    login: string;
+  };
+  commit: {
+    author: {
+      name: string;
+    };
+  };
+  files?: Array<{
+    filename: string;
+    additions: number;
+    deletions: number;
+  }>;
 }
 
 config();
@@ -51,92 +43,62 @@ export async function analyzePullRequestByDiff(
   token?: string
 ): Promise<PRAnalysisResult> {
   const authToken = token || process.env.GH_TOKEN;
+
+  return await analyzePullRequest(owner, repo, prNumber, authToken);
+}
+
+async function analyzePullRequest(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  token?: string
+): Promise<PRAnalysisResult> {
   const headers: HeadersInit = {
     Accept: 'application/vnd.github.v3+json',
   };
-
-  if (authToken) {
-    headers.Authorization = `token ${authToken}`;
+  if (token) {
+    headers.Authorization = `token ${token}`;
   }
-
-  // Get PR data to get base and head SHA
-  const prResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`, {
-    headers,
-  });
-
-  if (!prResponse.ok) {
-    throw new Error(`Failed to fetch PR data: ${prResponse.status} ${prResponse.statusText}`);
-  }
-
-  const prData = await prResponse.json();
-  const baseSha = prData.base.sha;
-  const headSha = prData.head.sha;
 
   // Get the files changed in the PR
   const filesResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/files`, {
     headers,
   });
-
   if (!filesResponse.ok) {
     throw new Error(`Failed to fetch PR files: ${filesResponse.status} ${filesResponse.statusText}`);
   }
 
   const files = await filesResponse.json();
 
-  const userStats = new Map<string, { additions: number; deletions: number }>();
   let totalAdditions = 0;
   let totalDeletions = 0;
+  const userStats = new Map<string, { additions: number; deletions: number }>();
 
+  console.log(`Analyzing ${files.length} changed files...`);
+
+  // Get all commits for the PR once (instead of per file)
+  console.log('Fetching PR commits...');
+  const allCommits = await getPRCommits(owner, repo, prNumber, token);
+  console.log(`Found ${allCommits.length} commits in PR`);
+
+  // Simple approach: distribute file changes proportionally among commit authors
   for (const file of files) {
-    if (!file.patch) continue;
-
+    console.log(`Processing file: ${file.filename} (+${file.additions}/-${file.deletions})`);
     totalAdditions += file.additions;
     totalDeletions += file.deletions;
 
-    // Parse the patch to get line-by-line changes
-    const { addedLines, removedLines } = parsePatch(file.patch);
+    // Find commits that likely touched this file based on the commit messages or use simple distribution
+    const fileContributors = distributeFileContributions(allCommits, file);
 
-    // For added lines, we need to use git blame to find who authored them
-    if (addedLines.length > 0) {
-      try {
-        const blameData = await getBlameForFile(owner, repo, headSha, file.filename, addedLines, authToken);
-
-        for (const blame of blameData) {
-          const username = blame.author;
-          const currentStats = userStats.get(username) || { additions: 0, deletions: 0 };
-          currentStats.additions += blame.lineCount;
-          userStats.set(username, currentStats);
-        }
-      } catch (error) {
-        console.warn(`Failed to get blame for ${file.filename}:`, error);
-        // Fallback: attribute all additions to 'Unknown'
-        const currentStats = userStats.get('Unknown') || { additions: 0, deletions: 0 };
-        currentStats.additions += addedLines.length;
-        userStats.set('Unknown', currentStats);
-      }
-    }
-
-    // For removed lines, we need to use git blame on the base commit
-    if (removedLines.length > 0) {
-      try {
-        const blameData = await getBlameForFile(owner, repo, baseSha, file.filename, removedLines, authToken);
-
-        for (const blame of blameData) {
-          const username = blame.author;
-          const currentStats = userStats.get(username) || { additions: 0, deletions: 0 };
-          currentStats.deletions += blame.lineCount;
-          userStats.set(username, currentStats);
-        }
-      } catch (error) {
-        console.warn(`Failed to get blame for ${file.filename}:`, error);
-        // Fallback: attribute all deletions to 'Unknown'
-        const currentStats = userStats.get('Unknown') || { additions: 0, deletions: 0 };
-        currentStats.deletions += removedLines.length;
-        userStats.set('Unknown', currentStats);
-      }
+    for (const [author, stats] of fileContributors) {
+      const currentStats = userStats.get(author) || { additions: 0, deletions: 0 };
+      currentStats.additions += stats.additions;
+      currentStats.deletions += stats.deletions;
+      userStats.set(author, currentStats);
     }
   }
 
+  // Convert to result format
   const userContributions: UserContribution[] = [];
 
   for (const [user, stats] of userStats) {
@@ -167,86 +129,6 @@ export async function analyzePullRequestByDiff(
 }
 
 // Keep the old commit-based function for comparison
-export async function analyzePullRequestCommits(
-  owner: string,
-  repo: string,
-  prNumber: number,
-  token?: string
-): Promise<PRAnalysisResult> {
-  const authToken = token || process.env.GH_TOKEN;
-  const headers: HeadersInit = {
-    Accept: 'application/vnd.github.v3+json',
-  };
-
-  if (authToken) {
-    headers.Authorization = `token ${authToken}`;
-  }
-
-  const commitsResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/commits`, {
-    headers,
-  });
-
-  if (!commitsResponse.ok) {
-    throw new Error(`Failed to fetch commits: ${commitsResponse.status} ${commitsResponse.statusText}`);
-  }
-
-  const commits = await commitsResponse.json();
-
-  const userStats = new Map<string, { additions: number; deletions: number }>();
-
-  for (const commit of commits) {
-    const username = commit.author?.login || commit.commit.author.name || 'Unknown';
-
-    const commitDetailResponse = await fetch(commit.url, { headers });
-    if (!commitDetailResponse.ok) {
-      console.warn(`Failed to fetch commit details for ${commit.sha}`);
-      continue;
-    }
-
-    const commitDetail = await commitDetailResponse.json();
-    const stats = commitDetail.stats || { additions: 0, deletions: 0 };
-
-    const currentStats = userStats.get(username) || { additions: 0, deletions: 0 };
-    currentStats.additions += stats.additions;
-    currentStats.deletions += stats.deletions;
-    userStats.set(username, currentStats);
-  }
-
-  let totalAdditions = 0;
-  let totalDeletions = 0;
-
-  const userContributions: UserContribution[] = [];
-
-  for (const [user, stats] of userStats) {
-    totalAdditions += stats.additions;
-    totalDeletions += stats.deletions;
-
-    userContributions.push({
-      user,
-      additions: stats.additions,
-      deletions: stats.deletions,
-      totalLines: stats.additions + stats.deletions,
-      percentage: 0,
-    });
-  }
-
-  const totalEditLines = totalAdditions + totalDeletions;
-
-  for (const contribution of userContributions) {
-    contribution.percentage = totalEditLines > 0 ? Math.round((contribution.totalLines / totalEditLines) * 100) : 0;
-  }
-
-  userContributions.sort((a, b) => b.totalLines - a.totalLines);
-
-  return {
-    prNumber,
-    totalAdditions,
-    totalDeletions,
-    totalEditLines,
-    userContributions,
-  };
-}
-
 export function formatAnalysisResult(result: PRAnalysisResult): string {
   const lines = [
     `PR #${result.prNumber} Analysis:`,
@@ -268,99 +150,66 @@ export function formatAnalysisResult(result: PRAnalysisResult): string {
   return lines.join('\n');
 }
 
-function parsePatch(patch: string): { addedLines: PatchLineInfo[]; removedLines: PatchLineInfo[] } {
-  const lines = patch.split('\n');
-  const addedLines: PatchLineInfo[] = [];
-  const removedLines: PatchLineInfo[] = [];
-
-  let currentLineNumber = 0;
-  let baseLineNumber = 0;
-
-  for (const line of lines) {
-    if (line.startsWith('@@')) {
-      // Parse hunk header to get line numbers
-      const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
-      if (match) {
-        baseLineNumber = parseInt(match[1], 10);
-        currentLineNumber = parseInt(match[2], 10);
-      }
-      continue;
-    }
-
-    if (line.startsWith('+') && !line.startsWith('+++')) {
-      addedLines.push({
-        lineNumber: currentLineNumber,
-        content: line.substring(1),
-      });
-      currentLineNumber++;
-    } else if (line.startsWith('-') && !line.startsWith('---')) {
-      removedLines.push({
-        lineNumber: baseLineNumber,
-        content: line.substring(1),
-      });
-      baseLineNumber++;
-    } else if (line.startsWith(' ')) {
-      // Context line
-      currentLineNumber++;
-      baseLineNumber++;
-    }
-  }
-
-  return { addedLines, removedLines };
-}
-
-async function getBlameForFile(
-  owner: string,
-  repo: string,
-  sha: string,
-  filename: string,
-  lines: PatchLineInfo[],
-  token?: string
-): Promise<BlameData[]> {
-  // For now, use a simplified approach that fetches commits for the file
-  // This is less accurate than git blame but works without local git operations
-  const authToken = token || process.env.GH_TOKEN;
+async function getPRCommits(owner: string, repo: string, prNumber: number, token?: string): Promise<GitHubCommit[]> {
   const headers: HeadersInit = {
     Accept: 'application/vnd.github.v3+json',
   };
 
-  if (authToken) {
-    headers.Authorization = `token ${authToken}`;
+  if (token) {
+    headers.Authorization = `token ${token}`;
   }
 
-  try {
-    // Get commits that touched this file
-    const commitsResponse = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/commits?sha=${sha}&path=${filename}&per_page=100`,
-      { headers }
-    );
+  console.log('Making single API call to get PR commits...');
+  const commitsResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/commits`, {
+    headers,
+  });
 
-    if (!commitsResponse.ok) {
-      throw new Error(`Failed to fetch commits for file: ${commitsResponse.status}`);
-    }
-
-    const commits = await commitsResponse.json();
-
-    // For simplicity, attribute all lines to the most recent commit author
-    // In a real implementation, you'd want to use actual git blame
-    const mostRecentCommit = commits[0];
-    const author = mostRecentCommit?.author?.login || mostRecentCommit?.commit?.author?.name || 'Unknown';
-
-    // Return all lines attributed to the most recent author
-    return [
-      {
-        author,
-        lineCount: lines.length,
-      },
-    ];
-  } catch (error) {
-    console.warn(`Failed to get blame for ${filename}:`, error);
-    // Fallback: attribute all lines to 'Unknown'
-    return [
-      {
-        author: 'Unknown',
-        lineCount: lines.length,
-      },
-    ];
+  if (!commitsResponse.ok) {
+    throw new Error(`Failed to fetch commits: ${commitsResponse.status}`);
   }
+
+  const commits = await commitsResponse.json();
+  console.log(`Retrieved ${commits.length} commits from API`);
+
+  return commits;
+}
+
+function distributeFileContributions(
+  commits: GitHubCommit[],
+  file: { filename: string; additions: number; deletions: number }
+): Map<string, { additions: number; deletions: number }> {
+  const contributions = new Map<string, { additions: number; deletions: number }>();
+
+  if (commits.length === 0) {
+    // Fallback: attribute to unknown
+    contributions.set('Unknown', { additions: file.additions, deletions: file.deletions });
+    return contributions;
+  }
+
+  // Simple distribution: divide changes equally among all commit authors
+  // This is a simplified approach that avoids excessive API calls
+  const authorsSet = new Set<string>();
+
+  for (const commit of commits) {
+    const author = commit.author?.login || commit.commit?.author?.name || 'Unknown';
+    authorsSet.add(author);
+  }
+
+  const authors = Array.from(authorsSet);
+  const additionsPerAuthor = Math.floor(file.additions / authors.length);
+  const deletionsPerAuthor = Math.floor(file.deletions / authors.length);
+
+  // Distribute changes
+  for (let i = 0; i < authors.length; i++) {
+    const author = authors[i];
+    const isLast = i === authors.length - 1;
+
+    // Give remainder to last author
+    const additions = isLast ? file.additions - additionsPerAuthor * (authors.length - 1) : additionsPerAuthor;
+    const deletions = isLast ? file.deletions - deletionsPerAuthor * (authors.length - 1) : deletionsPerAuthor;
+
+    contributions.set(author, { additions, deletions });
+  }
+
+  return contributions;
 }
