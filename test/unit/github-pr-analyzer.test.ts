@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { analyzePullRequest, formatAnalysisResult } from '../../src/github-pr-analyzer.js';
+import { analyzePullRequest } from '../../src/github-pr-analyzer.js';
 
 describe('GitHub PR Analyzer', () => {
   test('analyze WillBooster/gen-pr PR #65 by diff (accurate per-line attribution)', async () => {
@@ -8,9 +8,6 @@ describe('GitHub PR Analyzer', () => {
     const prNumber = 65;
 
     const result = await analyzePullRequest(owner, repo, prNumber);
-
-    console.log('\nDiff-based Analysis Result (Per-line attribution):');
-    console.log(formatAnalysisResult(result));
 
     expect(result.prNumber).toBe(65);
     expect(result.totalEditLines).toBe(290);
@@ -35,16 +32,15 @@ describe('GitHub PR Analyzer', () => {
     expect(exkazuuContrib?.deletions).toBe(47);
     expect(exkazuuContrib?.totalLines).toBe(153);
     expect(exkazuuContrib?.percentage).toBe(53);
+    expect(exkazuuContrib?.name).toBe('Sakamoto, Kazunori');
+    expect(exkazuuContrib?.email).toBe('exkazuu@gmail.com');
 
     expect(botContrib).toBeDefined();
     expect(botContrib?.additions).toBe(97);
     expect(botContrib?.deletions).toBe(40);
     expect(botContrib?.totalLines).toBe(137);
     expect(botContrib?.percentage).toBe(47);
-
-    for (const contribution of result.userContributions) {
-      expect(contribution.user).toBeTruthy();
-      expect(contribution.totalLines).toBe(contribution.additions + contribution.deletions);
-    }
+    expect(botContrib?.name).toBe('WillBooster Inc. (aider)');
+    expect(botContrib?.email).toBe('bot@willbooster.com');
   }, 60000);
 });
