@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { analyzePullRequest, formatAnalysisResult } from '../../src/github-pr-analyzer.js';
+import { analyzePullRequest } from '../../src/github-pr-analyzer.js';
 
 describe('GitHub PR Analyzer', () => {
   test('analyze WillBooster/gen-pr PR #65 by diff (accurate per-line attribution)', async () => {
@@ -8,9 +8,6 @@ describe('GitHub PR Analyzer', () => {
     const prNumber = 65;
 
     const result = await analyzePullRequest(owner, repo, prNumber);
-
-    console.log('\nDiff-based Analysis Result (Per-line attribution):');
-    console.log(formatAnalysisResult(result));
 
     expect(result.prNumber).toBe(65);
     expect(result.totalEditLines).toBe(290);
