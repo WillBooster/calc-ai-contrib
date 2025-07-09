@@ -1,4 +1,4 @@
-# Project Information
+## Project Information
 
 - Name: calc-ai-contrib
 - Description: undefined
