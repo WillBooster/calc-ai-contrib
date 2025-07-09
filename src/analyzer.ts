@@ -19,6 +19,17 @@ interface PRAnalysisResult {
   userContributions: UserContribution[];
 }
 
+interface DateRangeAnalysisResult {
+  startDate: string;
+  endDate: string;
+  totalPRs: number;
+  prNumbers: number[];
+  totalAdditions: number;
+  totalDeletions: number;
+  totalEditLines: number;
+  userContributions: UserContribution[];
+}
+
 config();
 
 // Initialize Octokit with authentication
@@ -137,6 +148,37 @@ export function formatAnalysisResult(result: PRAnalysisResult): string {
   return lines.join('\n');
 }
 
+export function formatDateRangeAnalysisResult(result: DateRangeAnalysisResult): string {
+  const lines = [
+    `Date Range Analysis (${result.startDate} to ${result.endDate}):`,
+    `Total PRs analyzed: ${result.totalPRs}`,
+    `PR numbers: ${result.prNumbers.join(', ')}`,
+    `Total additions: ${result.totalAdditions}`,
+    `Total deletions: ${result.totalDeletions}`,
+    `Total edit lines: ${result.totalEditLines}`,
+    '',
+    'Aggregated user contributions:',
+  ];
+
+  if (result.userContributions.length === 0) {
+    lines.push('No contributions found in the specified date range.');
+  } else {
+    for (const contribution of result.userContributions) {
+      const userInfo = contribution.user;
+      const nameInfo = contribution.name ? ` (${contribution.name})` : '';
+      const emailInfo = contribution.email ? ` <${contribution.email}>` : '';
+
+      lines.push(
+        `${userInfo}${nameInfo}${emailInfo}: ${contribution.percentage}% ` +
+          `(+${contribution.additions}, -${contribution.deletions}, ` +
+          `total: ${contribution.totalLines})`
+      );
+    }
+  }
+
+  return lines.join('\n');
+}
+
 async function getPRCommits(owner: string, repo: string, prNumber: number): Promise<GitHubCommit[]> {
   console.log('Making single API call to get PR commits...');
   const commitsResponse = await octokit.rest.pulls.listCommits({
@@ -201,4 +243,171 @@ function distributeFileContributions(
   }
 
   return contributions;
+}
+
+async function findPRsByDateRange(owner: string, repo: string, startDate: string, endDate: string): Promise<number[]> {
+  console.log(`Searching for PRs between ${startDate} and ${endDate}...`);
+
+  const prNumbers: number[] = [];
+  let page = 1;
+  const perPage = 100;
+
+  while (true) {
+    console.log(`Fetching PRs page ${page}...`);
+
+    const response = await octokit.rest.pulls.list({
+      owner,
+      repo,
+      state: 'closed',
+      sort: 'updated',
+      direction: 'desc',
+      per_page: perPage,
+      page,
+    });
+
+    const prs = response.data;
+
+    if (prs.length === 0) {
+      break;
+    }
+
+    let foundOlderPR = false;
+
+    for (const pr of prs) {
+      // Only consider merged PRs
+      if (!pr.merged_at) {
+        continue;
+      }
+
+      const mergedDate = new Date(pr.merged_at);
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      // Set end date to end of day
+      end.setHours(23, 59, 59, 999);
+
+      if (mergedDate >= start && mergedDate <= end) {
+        prNumbers.push(pr.number);
+        console.log(`Found PR #${pr.number} merged on ${pr.merged_at}`);
+      } else if (mergedDate < start) {
+        // PRs are sorted by updated date desc, so if we find a PR older than start date,
+        // we can stop searching (assuming no more recent PRs will be found)
+        foundOlderPR = true;
+        break;
+      }
+    }
+
+    // If we found a PR older than our start date, we can stop
+    if (foundOlderPR || prs.length < perPage) {
+      break;
+    }
+
+    page++;
+  }
+
+  console.log(`Found ${prNumbers.length} PRs in the specified date range`);
+  return prNumbers.sort((a, b) => a - b);
+}
+
+export async function analyzePullRequestsByDateRange(
+  owner: string,
+  repo: string,
+  startDate: string,
+  endDate: string
+): Promise<DateRangeAnalysisResult> {
+  const prNumbers = await findPRsByDateRange(owner, repo, startDate, endDate);
+
+  if (prNumbers.length === 0) {
+    return {
+      startDate,
+      endDate,
+      totalPRs: 0,
+      prNumbers: [],
+      totalAdditions: 0,
+      totalDeletions: 0,
+      totalEditLines: 0,
+      userContributions: [],
+    };
+  }
+
+  console.log(`\nAnalyzing ${prNumbers.length} PRs...`);
+
+  let totalAdditions = 0;
+  let totalDeletions = 0;
+  const aggregatedUserStats = new Map<
+    string,
+    { additions: number; deletions: number; name?: string; email?: string }
+  >();
+
+  for (let i = 0; i < prNumbers.length; i++) {
+    const prNumber = prNumbers[i];
+    console.log(`\n[${i + 1}/${prNumbers.length}] Analyzing PR #${prNumber}...`);
+
+    try {
+      const prResult = await analyzePullRequest(owner, repo, prNumber);
+
+      totalAdditions += prResult.totalAdditions;
+      totalDeletions += prResult.totalDeletions;
+
+      // Aggregate user contributions
+      for (const contribution of prResult.userContributions) {
+        const currentStats = aggregatedUserStats.get(contribution.user) || {
+          additions: 0,
+          deletions: 0,
+          name: contribution.name,
+          email: contribution.email,
+        };
+
+        currentStats.additions += contribution.additions;
+        currentStats.deletions += contribution.deletions;
+
+        // Update name and email if not already set
+        if (!currentStats.name && contribution.name) {
+          currentStats.name = contribution.name;
+        }
+        if (!currentStats.email && contribution.email) {
+          currentStats.email = contribution.email;
+        }
+
+        aggregatedUserStats.set(contribution.user, currentStats);
+      }
+    } catch (error) {
+      console.error(`Error analyzing PR #${prNumber}:`, error);
+      // Continue with other PRs
+    }
+  }
+
+  // Convert to result format
+  const userContributions: UserContribution[] = [];
+
+  for (const [user, stats] of aggregatedUserStats) {
+    userContributions.push({
+      user,
+      name: stats.name,
+      email: stats.email,
+      additions: stats.additions,
+      deletions: stats.deletions,
+      totalLines: stats.additions + stats.deletions,
+      percentage: 0,
+    });
+  }
+
+  const totalEditLines = totalAdditions + totalDeletions;
+
+  for (const contribution of userContributions) {
+    contribution.percentage = totalEditLines > 0 ? Math.round((contribution.totalLines / totalEditLines) * 100) : 0;
+  }
+
+  userContributions.sort((a, b) => b.totalLines - a.totalLines);
+
+  return {
+    startDate,
+    endDate,
+    totalPRs: prNumbers.length,
+    prNumbers,
+    totalAdditions,
+    totalDeletions,
+    totalEditLines,
+    userContributions,
+  };
 }

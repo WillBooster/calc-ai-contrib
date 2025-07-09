@@ -43,4 +43,34 @@ describe('GitHub PR Analyzer', () => {
     expect(botContrib?.name).toBe('WillBooster Inc. (aider)');
     expect(botContrib?.email).toBe('bot@willbooster.com');
   }, 60000);
+
+  test('analyze PRs by date range (basic functionality)', async () => {
+    const owner = 'WillBooster';
+    const repo = 'gen-pr';
+    const startDate = '2024-01-01';
+    const endDate = '2024-12-31';
+
+    // Import the function dynamically to avoid import issues
+    const { analyzePullRequestsByDateRange } = await import('../../src/analyzer.js');
+
+    const result = await analyzePullRequestsByDateRange(owner, repo, startDate, endDate);
+
+    expect(result.startDate).toBe(startDate);
+    expect(result.endDate).toBe(endDate);
+    expect(result.totalPRs).toBeGreaterThanOrEqual(0);
+    expect(result.prNumbers).toBeInstanceOf(Array);
+    expect(result.totalAdditions).toBeGreaterThanOrEqual(0);
+    expect(result.totalDeletions).toBeGreaterThanOrEqual(0);
+    expect(result.totalEditLines).toBe(result.totalAdditions + result.totalDeletions);
+    expect(result.userContributions).toBeInstanceOf(Array);
+
+    // If there are PRs, check that percentages add up to 100
+    if (result.totalPRs > 0) {
+      const totalPercentage = result.userContributions.reduce(
+        (sum: number, contribution) => sum + contribution.percentage,
+        0
+      );
+      expect(totalPercentage).toBe(100);
+    }
+  }, 120000);
 });
