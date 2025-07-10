@@ -295,7 +295,7 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
   const allPrNumbers: number[] = [];
 
   for (const { owner, repo } of repositories) {
-    logger.info(`\nProcessing repository: ${owner}/${repo}`);
+    logger.repository(`\nProcessing repository: ${owner}/${repo}`);
 
     try {
       // Find PRs in date range for this repository
@@ -306,10 +306,10 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
         continue;
       }
 
-      logger.info(`Found ${prNumbers.length} PRs in the specified date range`);
+      logger.success(`Found ${prNumbers.length} PRs in the specified date range`);
       allPrNumbers.push(...prNumbers);
 
-      logger.log(`Analyzing ${prNumbers.length} PRs...`);
+      logger.progress(`Analyzing ${prNumbers.length} PRs...`);
 
       // Analyze each PR directly
       for (let i = 0; i < prNumbers.length; i++) {

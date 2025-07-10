@@ -1,3 +1,4 @@
+import ansis from 'ansis';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { analyzePullRequestsByDateRangeMultiRepo, formatDateRangeAnalysisResult } from './analyzer.js';
@@ -137,27 +138,31 @@ async function main() {
       exclusionOptions.aiEmails?.length;
 
     if (hasExclusions && verbose) {
-      console.log('\nOptions:');
+      console.log(ansis.dim('\nOptions:'));
       if (exclusionOptions.excludeFiles?.length) {
-        console.log(`  Exclude files: ${exclusionOptions.excludeFiles.join(', ')}`);
+        console.log(ansis.dim(`  Exclude files: ${exclusionOptions.excludeFiles.join(', ')}`));
       }
       if (exclusionOptions.excludeUsers?.length) {
-        console.log(`  Exclude users: ${exclusionOptions.excludeUsers.join(', ')}`);
+        console.log(ansis.dim(`  Exclude users: ${exclusionOptions.excludeUsers.join(', ')}`));
       }
       if (exclusionOptions.excludeEmails?.length) {
-        console.log(`  Exclude emails: ${exclusionOptions.excludeEmails.join(', ')}`);
+        console.log(ansis.dim(`  Exclude emails: ${exclusionOptions.excludeEmails.join(', ')}`));
       }
       if (exclusionOptions.excludeCommitMessages?.length) {
-        console.log(`  Exclude commit messages containing: ${exclusionOptions.excludeCommitMessages.join(', ')}`);
+        console.log(
+          ansis.dim(`  Exclude commit messages containing: ${exclusionOptions.excludeCommitMessages.join(', ')}`)
+        );
       }
       if (exclusionOptions.aiEmails?.length) {
-        console.log(`  AI emails: ${exclusionOptions.aiEmails.join(', ')}`);
+        console.log(ansis.dim(`  AI emails: ${exclusionOptions.aiEmails.join(', ')}`));
       }
       console.log('');
     }
 
-    console.log(`Analyzing PRs from ${repositories.length} repositories between ${startDate} and ${endDate}...`);
-    console.log('Note: Set GH_TOKEN environment variable for higher rate limits.');
+    console.log(
+      ansis.blue(`Analyzing PRs from ${repositories.length} repositories between ${startDate} and ${endDate}...`)
+    );
+    console.log(ansis.yellow('Note: Set GH_TOKEN environment variable for higher rate limits.'));
 
     const result = await analyzePullRequestsByDateRangeMultiRepo(
       repositories,
@@ -168,7 +173,7 @@ async function main() {
     );
     console.log(`\n${formatDateRangeAnalysisResult(result, exclusionOptions)}`);
   } catch (error) {
-    console.error('Error analyzing PR:', error);
+    console.error(ansis.red('Error analyzing PR:'), error);
   }
 }
 

@@ -1,5 +1,7 @@
+import ansis from 'ansis';
+
 /**
- * Simple logging utility that respects verbose flag
+ * Simple logging utility that respects verbose flag and provides colorized output
  */
 export class Logger {
   private _verbose: boolean;
@@ -20,7 +22,7 @@ export class Logger {
    */
   log(message: string): void {
     if (this._verbose) {
-      console.log(message);
+      console.log(ansis.dim(message));
     }
   }
 
@@ -32,13 +34,20 @@ export class Logger {
   }
 
   /**
+   * Log success messages in green
+   */
+  success(message: string): void {
+    console.log(ansis.green(message));
+  }
+
+  /**
    * Always log errors regardless of verbose mode
    */
   error(message: string, error?: unknown): void {
     if (error) {
-      console.error(message, error);
+      console.error(ansis.red(message), error);
     } else {
-      console.error(message);
+      console.error(ansis.red(message));
     }
   }
 
@@ -46,6 +55,20 @@ export class Logger {
    * Always log warnings regardless of verbose mode
    */
   warn(message: string): void {
-    console.warn(message);
+    console.warn(ansis.yellow(message));
+  }
+
+  /**
+   * Log repository processing messages in cyan
+   */
+  repository(message: string): void {
+    console.log(ansis.cyan(message));
+  }
+
+  /**
+   * Log progress messages in blue
+   */
+  progress(message: string): void {
+    console.log(ansis.blue(message));
   }
 }
