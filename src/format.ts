@@ -85,7 +85,7 @@ function formatHeader(result: PRAnalysisResult | DateRangeAnalysisResult, hasAIE
 
     lines.push('╠══════════════════════════════════════════════════╣');
     if (pairPercentage > 0) {
-      lines.push(`║ ${`AI: ${aiPercentage}% | Human: ${humanPercentage}% | Pair: ${pairPercentage}%`.padEnd(48)} ║`);
+      lines.push(`║ ${`AI: ${aiPercentage}% | Pair: ${pairPercentage}% | Human: ${humanPercentage}%`.padEnd(48)} ║`);
       lines.push(
         `║ ${`Contributors: ${result.aiContributions.peopleCount} AI, ${result.humanContributions.peopleCount} Human`.padEnd(48)} ║`
       );
@@ -112,21 +112,20 @@ function formatDetailedBreakdown(result: BaseAnalysisResult, hasAIEmails: boolea
 
     // Create progress bars for each category
     const aiBar = createProgressBar(result.aiContributions.percentage);
-    const humanBar = createProgressBar(result.humanContributions.percentage);
     const pairBar = createProgressBar(result.pairContributions.percentage);
+    const humanBar = createProgressBar(result.humanContributions.percentage);
 
     lines.push(
       `🤖 AI   : [${aiBar}] ${result.aiContributions.percentage.toString().padStart(3)}% | ${result.aiContributions.totalEditLines.toLocaleString().padStart(8)} Edits (+${result.aiContributions.totalAdditions.toLocaleString()} / -${result.aiContributions.totalDeletions.toLocaleString()})`
     );
-    lines.push(
-      `👥 Human: [${humanBar}] ${result.humanContributions.percentage.toString().padStart(3)}% | ${result.humanContributions.totalEditLines.toLocaleString().padStart(8)} Edits (+${result.humanContributions.totalAdditions.toLocaleString()} / -${result.humanContributions.totalDeletions.toLocaleString()})`
-    );
-
     if (result.pairContributions.percentage > 0) {
       lines.push(
         `🤝 Pair : [${pairBar}] ${result.pairContributions.percentage.toString().padStart(3)}% | ${result.pairContributions.totalEditLines.toLocaleString().padStart(8)} Edits (+${result.pairContributions.totalAdditions.toLocaleString()} / -${result.pairContributions.totalDeletions.toLocaleString()})`
       );
     }
+    lines.push(
+      `👥 Human: [${humanBar}] ${result.humanContributions.percentage.toString().padStart(3)}% | ${result.humanContributions.totalEditLines.toLocaleString().padStart(8)} Edits (+${result.humanContributions.totalAdditions.toLocaleString()} / -${result.humanContributions.totalDeletions.toLocaleString()})`
+    );
 
     lines.push('');
   }
