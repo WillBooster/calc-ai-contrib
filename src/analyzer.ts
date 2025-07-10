@@ -1,56 +1,8 @@
 import { config } from 'dotenv';
 import micromatch from 'micromatch';
 import { Octokit } from 'octokit';
-import { Logger } from './logger.js';
-
-interface ExclusionOptions {
-  excludeFiles?: string[];
-  excludeUsers?: string[];
-  excludeEmails?: string[];
-  excludeCommitMessages?: string[];
-  aiEmails?: string[];
-}
-
-interface UserStats {
-  additions: number;
-  deletions: number;
-  name?: string;
-  email?: string;
-}
-
-interface UserContribution {
-  user: string;
-  name?: string;
-  email?: string;
-  additions: number;
-  deletions: number;
-  totalLines: number;
-  percentage: number;
-}
-
-interface ContributionStats {
-  totalAdditions: number;
-  totalDeletions: number;
-  totalEditLines: number;
-  percentage: number;
-  peopleCount: number;
-}
-
-interface BaseAnalysisResult {
-  totalAdditions: number;
-  totalDeletions: number;
-  totalEditLines: number;
-  userContributions: UserContribution[];
-  humanContributions: ContributionStats;
-  aiContributions: ContributionStats;
-}
-
-interface DateRangeAnalysisResult extends BaseAnalysisResult {
-  startDate: string;
-  endDate: string;
-  totalPRs: number;
-  prNumbers: number[];
-}
+import type { Logger } from './logger.js';
+import type { DateRangeAnalysisResult, ExclusionOptions, UserContribution, UserStats } from './types.js';
 
 config();
 
@@ -59,6 +11,199 @@ const octokit = new Octokit({
 });
 
 type GitHubCommit = Awaited<ReturnType<typeof octokit.rest.pulls.listCommits>>['data'][0];
+
+interface Repository {
+  owner: string;
+  repo: string;
+}
+
+export async function analyzePullRequestsByDateRangeMultiRepo(
+  repositories: Repository[],
+  startDate: string,
+  endDate: string,
+  exclusionOptions: ExclusionOptions = {},
+  verbose: boolean = false
+): Promise<DateRangeAnalysisResult> {
+  const logger = new Logger(verbose);
+  logger.info(`Analyzing ${repositories.length} repositories...`);
+
+  let totalAdditions = 0;
+  let totalDeletions = 0;
+  const aggregatedUserStats = new Map<string, UserStats>();
+  const allPrNumbers: number[] = [];
+
+  for (const { owner, repo } of repositories) {
+    logger.repository(`\nProcessing repository: ${owner}/${repo}`);
+
+    try {
+      // Find PRs in date range for this repository
+      const prNumbers = await findPRsByDateRange(owner, repo, startDate, endDate, logger);
+
+      if (prNumbers.length === 0) {
+        logger.info(`No PRs found in the specified date range for ${owner}/${repo}`);
+        continue;
+      }
+
+      logger.success(`Found ${prNumbers.length} PRs in the specified date range`);
+      allPrNumbers.push(...prNumbers);
+
+      logger.progress(`Analyzing ${prNumbers.length} PRs...`);
+
+      // Analyze each PR directly
+      for (let i = 0; i < prNumbers.length; i++) {
+        const prNumber = prNumbers[i];
+        logger.log(`\n[${i + 1}/${prNumbers.length}] Analyzing PR #${prNumber}...`);
+
+        try {
+          // Get PR files
+          const filesResponse = await octokit.rest.pulls.listFiles({
+            owner,
+            repo,
+            pull_number: prNumber,
+          });
+
+          const files = filesResponse.data;
+          logger.log(`Analyzing ${files.length} changed files...`);
+
+          // Get PR commits
+          logger.log('Fetching PR commits...');
+          const allCommits = await getPRCommits(owner, repo, prNumber, logger);
+          logger.log(`Found ${allCommits.length} commits in PR`);
+
+          // Filter commits by exclusion criteria
+          const filteredCommits = allCommits.filter((commit) => {
+            const commitMessage = commit.commit?.message || '';
+            return !shouldExcludeCommit(commitMessage, exclusionOptions.excludeCommitMessages);
+          });
+
+          if (filteredCommits.length !== allCommits.length) {
+            logger.log(
+              `Filtered out ${allCommits.length - filteredCommits.length} commits based on exclusion criteria`
+            );
+          }
+
+          // Filter files by exclusion criteria
+          const filteredFiles = files.filter((file) => {
+            return !shouldExcludeFile(file.filename, exclusionOptions.excludeFiles);
+          });
+
+          if (filteredFiles.length !== files.length) {
+            logger.log(`Filtered out ${files.length - filteredFiles.length} files based on exclusion criteria`);
+          }
+
+          // Process each file
+          for (const file of filteredFiles) {
+            logger.log(`Processing file: ${file.filename} (+${file.additions}/-${file.deletions})`);
+
+            const fileContributors = distributeFileContributions(filteredCommits, file);
+            let fileAdditionsIncluded = 0;
+            let fileDeletionsIncluded = 0;
+
+            for (const [author, stats] of fileContributors) {
+              if (shouldExcludeUser(author, stats.name, stats.email, exclusionOptions)) {
+                logger.log(`Excluding user: ${author} (${stats.name || 'no name'}) <${stats.email || 'no email'}>`);
+                continue;
+              }
+
+              const currentStats = aggregatedUserStats.get(author) || {
+                additions: 0,
+                deletions: 0,
+                name: stats.name,
+                email: stats.email,
+              };
+              currentStats.additions += stats.additions;
+              currentStats.deletions += stats.deletions;
+              fileAdditionsIncluded += stats.additions;
+              fileDeletionsIncluded += stats.deletions;
+
+              if (!currentStats.name && stats.name) {
+                currentStats.name = stats.name;
+              }
+              if (!currentStats.email && stats.email) {
+                currentStats.email = stats.email;
+              }
+              aggregatedUserStats.set(author, currentStats);
+            }
+
+            // Only count additions/deletions from non-excluded users
+            totalAdditions += fileAdditionsIncluded;
+            totalDeletions += fileDeletionsIncluded;
+          }
+        } catch (error) {
+          logger.error(`Error analyzing PR #${prNumber}:`, error);
+        }
+
+        // Show progress indicator (one dot per PR processed)
+        if (!logger.verbose) {
+          process.stdout.write('.');
+        }
+      }
+
+      // Add newline after processing all PRs in this repository
+      if (!logger.verbose && prNumbers.length > 0) {
+        console.log(''); // Add newline after dots
+      }
+    } catch (error) {
+      logger.error(`Error analyzing repository ${owner}/${repo}:`, error);
+      // Continue with other repositories
+    }
+  }
+
+  const totalEditLines = totalAdditions + totalDeletions;
+
+  // Convert aggregated stats to user contributions
+  const userContributions: UserContribution[] = Array.from(aggregatedUserStats.entries())
+    .map(([user, stats]) => ({
+      user,
+      name: stats.name,
+      email: stats.email,
+      additions: stats.additions,
+      deletions: stats.deletions,
+      totalLines: stats.additions + stats.deletions,
+      percentage: totalEditLines > 0 ? Math.round(((stats.additions + stats.deletions) / totalEditLines) * 100) : 0,
+    }))
+    .sort((a, b) => b.totalLines - a.totalLines);
+
+  // Calculate human vs AI contributions
+  const aiEmails = exclusionOptions.aiEmails || [];
+  const humanContribs = userContributions.filter((contrib) => !aiEmails.some((aiEmail) => contrib.email === aiEmail));
+  const aiContribs = userContributions.filter((contrib) => aiEmails.some((aiEmail) => contrib.email === aiEmail));
+
+  const humanTotalAdditions = humanContribs.reduce((sum, contrib) => sum + contrib.additions, 0);
+  const humanTotalDeletions = humanContribs.reduce((sum, contrib) => sum + contrib.deletions, 0);
+  const humanTotalEditLines = humanTotalAdditions + humanTotalDeletions;
+  const humanPercentage = totalEditLines > 0 ? Math.round((humanTotalEditLines / totalEditLines) * 100) : 0;
+
+  const aiTotalAdditions = aiContribs.reduce((sum, contrib) => sum + contrib.additions, 0);
+  const aiTotalDeletions = aiContribs.reduce((sum, contrib) => sum + contrib.deletions, 0);
+  const aiTotalEditLines = aiTotalAdditions + aiTotalDeletions;
+  const aiPercentage = totalEditLines > 0 ? Math.round((aiTotalEditLines / totalEditLines) * 100) : 0;
+
+  return {
+    startDate,
+    endDate,
+    totalPRs: allPrNumbers.length,
+    prNumbers: allPrNumbers.sort((a, b) => a - b),
+    totalAdditions,
+    totalDeletions,
+    totalEditLines,
+    userContributions,
+    humanContributions: {
+      totalAdditions: humanTotalAdditions,
+      totalDeletions: humanTotalDeletions,
+      totalEditLines: humanTotalEditLines,
+      percentage: humanPercentage,
+      peopleCount: humanContribs.length,
+    },
+    aiContributions: {
+      totalAdditions: aiTotalAdditions,
+      totalDeletions: aiTotalDeletions,
+      totalEditLines: aiTotalEditLines,
+      percentage: aiPercentage,
+      peopleCount: aiContribs.length,
+    },
+  };
+}
 
 async function getPRCommits(owner: string, repo: string, prNumber: number, logger: Logger): Promise<GitHubCommit[]> {
   logger.log('Making single API call to get PR commits...');
