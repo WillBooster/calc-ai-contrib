@@ -128,7 +128,7 @@ async function main() {
       aiEmails: aiEmails as string[] | undefined,
     };
 
-    // Log exclusion options if any are provided
+    // Log exclusion options if any are provided and verbose mode is enabled
     const hasExclusions =
       exclusionOptions.excludeFiles?.length ||
       exclusionOptions.excludeUsers?.length ||
@@ -136,7 +136,7 @@ async function main() {
       exclusionOptions.excludeCommitMessages?.length ||
       exclusionOptions.aiEmails?.length;
 
-    if (hasExclusions) {
+    if (hasExclusions && verbose) {
       console.log('\nOptions:');
       if (exclusionOptions.excludeFiles?.length) {
         console.log(`  Exclude files: ${exclusionOptions.excludeFiles.join(', ')}`);
@@ -157,7 +157,6 @@ async function main() {
     }
 
     console.log(`Analyzing PRs from ${repositories.length} repositories between ${startDate} and ${endDate}...`);
-    console.log('This method uses git blame to accurately attribute each line to its actual author.');
     console.log('Note: Set GH_TOKEN environment variable for higher rate limits.');
 
     const result = await analyzePullRequestsByDateRangeMultiRepo(

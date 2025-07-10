@@ -394,6 +394,11 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
         } catch (error) {
           logger.error(`Error analyzing PR #${prNumber}:`, error);
         }
+
+        // Show progress indicator (one dot per PR processed)
+        if (!logger.verbose) {
+          process.stdout.write('.');
+        }
       }
     } catch (error) {
       logger.error(`Error analyzing repository ${owner}/${repo}:`, error);

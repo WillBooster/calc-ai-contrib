@@ -2,10 +2,17 @@
  * Simple logging utility that respects verbose flag
  */
 export class Logger {
-  private verbose: boolean;
+  private _verbose: boolean;
 
   constructor(verbose: boolean = false) {
-    this.verbose = verbose;
+    this._verbose = verbose;
+  }
+
+  /**
+   * Get the verbose flag value
+   */
+  get verbose(): boolean {
+    return this._verbose;
   }
 
   /**
