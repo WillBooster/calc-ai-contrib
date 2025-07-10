@@ -57,12 +57,10 @@ interface DateRangeAnalysisResult extends BaseAnalysisResult {
 
 config();
 
-// Initialize Octokit with authentication
 const octokit = new Octokit({
   auth: process.env.GH_TOKEN,
 });
 
-// Use Octokit's built-in types for commits
 type GitHubCommit = Awaited<ReturnType<typeof octokit.rest.pulls.listCommits>>['data'][0];
 
 export async function analyzePullRequest(
@@ -71,7 +69,6 @@ export async function analyzePullRequest(
   prNumber: number,
   exclusionOptions: ExclusionOptions = {}
 ): Promise<PRAnalysisResult> {
-  // Get the files changed in the PR
   const filesResponse = await octokit.rest.pulls.listFiles({
     owner,
     repo,
@@ -79,19 +76,16 @@ export async function analyzePullRequest(
   });
 
   const files = filesResponse.data;
-
   let _totalAdditions = 0;
   let _totalDeletions = 0;
   const userStats = new Map<string, UserStats>();
 
   console.log(`Analyzing ${files.length} changed files...`);
 
-  // Get all commits for the PR once (instead of per file)
   console.log('Fetching PR commits...');
   const allCommits = await getPRCommits(owner, repo, prNumber);
   console.log(`Found ${allCommits.length} commits in PR`);
 
-  // Filter commits based on exclusion options
   const filteredCommits = allCommits.filter((commit) => {
     const commitMessage = commit.commit?.message || '';
     return !shouldExcludeCommit(commitMessage, exclusionOptions.excludeCommitMessages);
@@ -101,7 +95,6 @@ export async function analyzePullRequest(
     console.log(`Filtered out ${allCommits.length - filteredCommits.length} commits based on exclusion criteria`);
   }
 
-  // Filter files based on exclusion options
   const filteredFiles = files.filter((file) => {
     return !shouldExcludeFile(file.filename, exclusionOptions.excludeFiles);
   });
@@ -110,17 +103,14 @@ export async function analyzePullRequest(
     console.log(`Filtered out ${files.length - filteredFiles.length} files based on exclusion criteria`);
   }
 
-  // Simple approach: distribute file changes proportionally among commit authors
   for (const file of filteredFiles) {
     console.log(`Processing file: ${file.filename} (+${file.additions}/-${file.deletions})`);
     _totalAdditions += file.additions;
     _totalDeletions += file.deletions;
 
-    // Find commits that likely touched this file based on the commit messages or use simple distribution
     const fileContributors = distributeFileContributions(filteredCommits, file);
 
     for (const [author, stats] of fileContributors) {
-      // Check if user should be excluded
       if (shouldExcludeUser(author, stats.name, stats.email, exclusionOptions)) {
         console.log(`Excluding user: ${author} (${stats.name || 'no name'}) <${stats.email || 'no email'}>`);
         continue;
@@ -134,7 +124,7 @@ export async function analyzePullRequest(
       };
       currentStats.additions += stats.additions;
       currentStats.deletions += stats.deletions;
-      // Update name and email if not already set or if we have better information
+
       if (!currentStats.name && stats.name) {
         currentStats.name = stats.name;
       }
@@ -145,7 +135,6 @@ export async function analyzePullRequest(
     }
   }
 
-  // Convert to result format
   const userContributions: UserContribution[] = [];
 
   for (const [user, stats] of userStats) {
@@ -160,7 +149,6 @@ export async function analyzePullRequest(
     });
   }
 
-  // Calculate total edit lines from actual user contributions (after exclusions)
   const actualTotalEditLines = userContributions.reduce((sum, contrib) => sum + contrib.totalLines, 0);
 
   for (const contribution of userContributions) {
@@ -170,11 +158,9 @@ export async function analyzePullRequest(
 
   userContributions.sort((a, b) => b.totalLines - a.totalLines);
 
-  // Calculate actual totals from user contributions (after exclusions)
   const actualTotalAdditions = userContributions.reduce((sum, contrib) => sum + contrib.additions, 0);
   const actualTotalDeletions = userContributions.reduce((sum, contrib) => sum + contrib.deletions, 0);
 
-  // Calculate AI vs Human contributions
   const aiContribs = userContributions.filter((contrib) => isAIUser(contrib.email, exclusionOptions.aiEmails));
   const humanContribs = userContributions.filter((contrib) => !isAIUser(contrib.email, exclusionOptions.aiEmails));
 
@@ -212,11 +198,9 @@ export async function analyzePullRequest(
   };
 }
 
-// Keep the old commit-based function for comparison
 export function formatAnalysisResult(result: PRAnalysisResult, exclusionOptions: ExclusionOptions = {}): string {
   const lines: string[] = [];
 
-  // Header for single PR
   lines.push('╔══════════════════════════════════════════════════════════════════════════════════════╗');
   lines.push(
     `║                              PR #${result.prNumber.toString().padEnd(4)} ANALYSIS REPORT                              ║`
@@ -224,7 +208,6 @@ export function formatAnalysisResult(result: PRAnalysisResult, exclusionOptions:
   lines.push('╚══════════════════════════════════════════════════════════════════════════════════════╝');
   lines.push('');
 
-  // Summary statistics
   lines.push('📊 SUMMARY STATISTICS');
   lines.push('─'.repeat(50));
   lines.push(`Total Additions: ${result.totalAdditions.toLocaleString()}`);
@@ -232,13 +215,11 @@ export function formatAnalysisResult(result: PRAnalysisResult, exclusionOptions:
   lines.push(`Total Edit Lines: ${result.totalEditLines.toLocaleString()}`);
   lines.push('');
 
-  // Add AI vs Human breakdown only if AI emails were specified
   const hasAIEmails = exclusionOptions.aiEmails && exclusionOptions.aiEmails.length > 0;
   if (hasAIEmails) {
     lines.push('🤖 HUMAN vs AI BREAKDOWN');
     lines.push('─'.repeat(50));
 
-    // Create a visual bar representation
     const humanPercentage = result.humanContributions.percentage;
     const aiPercentage = result.aiContributions.percentage;
     const barLength = 40;
@@ -276,7 +257,6 @@ export function formatAnalysisResult(result: PRAnalysisResult, exclusionOptions:
     const nameInfo = contribution.name ? ` (${contribution.name})` : '';
     const emailInfo = contribution.email ? ` <${contribution.email}>` : '';
 
-    // Create a mini progress bar for each user
     const userBarLength = 20;
     const userBars = Math.round((contribution.percentage / 100) * userBarLength);
     const userBar = '█'.repeat(userBars) + '░'.repeat(userBarLength - userBars);
@@ -298,7 +278,6 @@ export function formatDateRangeAnalysisResult(
 ): string {
   const lines: string[] = [];
 
-  // Header with date range
   lines.push('╔══════════════════════════════════════════════════════════════════════════════════════╗');
   lines.push(`║                           CONTRIBUTION ANALYSIS REPORT                              ║`);
   lines.push('╠══════════════════════════════════════════════════════════════════════════════════════╣');
@@ -314,7 +293,6 @@ export function formatDateRangeAnalysisResult(
   lines.push('╚══════════════════════════════════════════════════════════════════════════════════════╝');
   lines.push('');
 
-  // Summary statistics
   lines.push('📊 SUMMARY STATISTICS');
   lines.push('─'.repeat(50));
   lines.push(`Total Additions: ${result.totalAdditions.toLocaleString()}`);
@@ -322,13 +300,11 @@ export function formatDateRangeAnalysisResult(
   lines.push(`Total Edit Lines: ${result.totalEditLines.toLocaleString()}`);
   lines.push('');
 
-  // Add AI vs Human breakdown only if AI emails were specified
   const hasAIEmails = exclusionOptions.aiEmails && exclusionOptions.aiEmails.length > 0;
   if (hasAIEmails) {
     lines.push('🤖 HUMAN vs AI BREAKDOWN');
     lines.push('─'.repeat(50));
 
-    // Create a visual bar representation
     const humanPercentage = result.humanContributions.percentage;
     const aiPercentage = result.aiContributions.percentage;
     const barLength = 40;
@@ -369,7 +345,6 @@ export function formatDateRangeAnalysisResult(
       const nameInfo = contribution.name ? ` (${contribution.name})` : '';
       const emailInfo = contribution.email ? ` <${contribution.email}>` : '';
 
-      // Create a mini progress bar for each user
       const userBarLength = 20;
       const userBars = Math.round((contribution.percentage / 100) * userBarLength);
       const userBar = '█'.repeat(userBars) + '░'.repeat(userBarLength - userBars);
@@ -407,13 +382,10 @@ function distributeFileContributions(
   const contributions = new Map<string, UserStats>();
 
   if (commits.length === 0) {
-    // Fallback: attribute to unknown
     contributions.set('Unknown', { additions: file.additions, deletions: file.deletions });
     return contributions;
   }
 
-  // Simple distribution: divide changes equally among all commit authors
-  // This is a simplified approach that avoids excessive API calls
   const authorsMap = new Map<string, Pick<UserStats, 'name' | 'email'>>();
 
   for (const commit of commits) {
@@ -421,7 +393,6 @@ function distributeFileContributions(
     const name = commit.commit?.author?.name;
     const email = commit.commit?.author?.email;
 
-    // Store the first occurrence of name and email for each author
     if (!authorsMap.has(author)) {
       authorsMap.set(author, { name, email });
     }
@@ -431,13 +402,11 @@ function distributeFileContributions(
   const additionsPerAuthor = Math.floor(file.additions / authors.length);
   const deletionsPerAuthor = Math.floor(file.deletions / authors.length);
 
-  // Distribute changes
   for (let i = 0; i < authors.length; i++) {
     const author = authors[i];
     const authorInfo = authorsMap.get(author);
     const isLast = i === authors.length - 1;
 
-    // Give remainder to last author
     const additions = isLast ? file.additions - additionsPerAuthor * (authors.length - 1) : additionsPerAuthor;
     const deletions = isLast ? file.deletions - deletionsPerAuthor * (authors.length - 1) : deletionsPerAuthor;
 
@@ -481,7 +450,6 @@ async function findPRsByDateRange(owner: string, repo: string, startDate: string
     let foundOlderPR = false;
 
     for (const pr of prs) {
-      // Only consider merged PRs
       if (!pr.merged_at) {
         continue;
       }
@@ -490,21 +458,17 @@ async function findPRsByDateRange(owner: string, repo: string, startDate: string
       const start = new Date(startDate);
       const end = new Date(endDate);
 
-      // Set end date to end of day
       end.setHours(23, 59, 59, 999);
 
       if (mergedDate >= start && mergedDate <= end) {
         prNumbers.push(pr.number);
         console.log(`Found PR #${pr.number} merged on ${pr.merged_at}`);
       } else if (mergedDate < start) {
-        // PRs are sorted by updated date desc, so if we find a PR older than start date,
-        // we can stop searching (assuming no more recent PRs will be found)
         foundOlderPR = true;
         break;
       }
     }
 
-    // If we found a PR older than our start date, we can stop
     if (foundOlderPR || prs.length < perPage) {
       break;
     }
@@ -568,7 +532,6 @@ export async function analyzePullRequestsByDateRange(
       totalAdditions += prResult.totalAdditions;
       totalDeletions += prResult.totalDeletions;
 
-      // Aggregate user contributions
       for (const contribution of prResult.userContributions) {
         const currentStats = aggregatedUserStats.get(contribution.user) || {
           additions: 0,
@@ -580,7 +543,6 @@ export async function analyzePullRequestsByDateRange(
         currentStats.additions += contribution.additions;
         currentStats.deletions += contribution.deletions;
 
-        // Update name and email if not already set
         if (!currentStats.name && contribution.name) {
           currentStats.name = contribution.name;
         }
@@ -592,11 +554,9 @@ export async function analyzePullRequestsByDateRange(
       }
     } catch (error) {
       console.error(`Error analyzing PR #${prNumber}:`, error);
-      // Continue with other PRs
     }
   }
 
-  // Convert to result format
   const userContributions: UserContribution[] = [];
 
   for (const [user, stats] of aggregatedUserStats) {
@@ -619,7 +579,6 @@ export async function analyzePullRequestsByDateRange(
 
   userContributions.sort((a, b) => b.totalLines - a.totalLines);
 
-  // Calculate AI vs Human contributions
   const aiContribs = userContributions.filter((contrib) => isAIUser(contrib.email, exclusionOptions.aiEmails));
   const humanContribs = userContributions.filter((contrib) => !isAIUser(contrib.email, exclusionOptions.aiEmails));
 
@@ -660,7 +619,6 @@ export async function analyzePullRequestsByDateRange(
   };
 }
 
-// Helper functions for exclusion filtering
 function shouldExcludeFile(filename: string, excludePatterns: string[] = []): boolean {
   return excludePatterns.some((pattern) => micromatch.isMatch(filename, pattern));
 }
@@ -673,12 +631,10 @@ function shouldExcludeUser(
 ): boolean {
   const { excludeUsers = [], excludeEmails = [] } = exclusionOptions;
 
-  // Check if user should be excluded by username
   if (excludeUsers.includes(user)) {
     return true;
   }
 
-  // Check if user should be excluded by email
   if (email && excludeEmails.includes(email)) {
     return true;
   }
