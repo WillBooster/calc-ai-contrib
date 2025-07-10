@@ -1,3 +1,5 @@
+import type { Octokit } from 'octokit';
+
 export interface ExclusionOptions {
   excludeFiles?: string[];
   excludeUsers?: string[];
@@ -51,26 +53,5 @@ export interface DateRangeAnalysisResult extends BaseAnalysisResult {
   prNumbers: number[];
 }
 
-// GitHub API types
-export interface GitHubAuthor {
-  name?: string | null;
-  email?: string | null;
-  login?: string;
-  date?: string;
-}
-
-export interface GitHubCommitData {
-  author?: GitHubAuthor | null;
-  message?: string;
-}
-
-export interface GitHubCommit {
-  author?: GitHubAuthor | Record<string, unknown> | null;
-  commit?: GitHubCommitData;
-}
-
-export interface GitHubFile {
-  filename: string;
-  additions: number;
-  deletions: number;
-}
+export type GitHubCommit = Awaited<ReturnType<Octokit['rest']['pulls']['listCommits']>>['data'][0];
+export type GitHubFile = Awaited<ReturnType<Octokit['rest']['pulls']['listFiles']>>['data'][0];

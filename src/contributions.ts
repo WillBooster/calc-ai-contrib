@@ -1,6 +1,6 @@
 import { shouldExcludeUser } from './exclusions.js';
 import type { Logger } from './logger.js';
-import type { ExclusionOptions, GitHubAuthor, GitHubCommit, GitHubFile, UserContribution, UserStats } from './types.js';
+import type { ExclusionOptions, GitHubCommit, GitHubFile, UserContribution, UserStats } from './types.js';
 
 /**
  * Calculate contribution statistics for a group of users
@@ -119,11 +119,8 @@ export function distributeFileContributions(commits: GitHubCommit[], file: GitHu
   const authorsMap = new Map<string, Pick<UserStats, 'name' | 'email'>>();
 
   for (const commit of commits) {
-    // Handle the case where author might be a Record<string, unknown> or null
-    const authorLogin =
-      typeof commit.author === 'object' && commit.author && 'login' in commit.author
-        ? (commit.author as GitHubAuthor).login
-        : undefined;
+    // Use Octokit types - author is the GitHub user, commit.author is the git author
+    const authorLogin = commit.author?.login;
     const author = authorLogin || commit.commit?.author?.name || 'Unknown';
     const name = commit.commit?.author?.name || undefined;
     const email = commit.commit?.author?.email || undefined;
