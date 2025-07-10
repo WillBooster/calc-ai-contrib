@@ -1,10 +1,9 @@
 {
   "name": "calc-ai-contrib",
   "version": "0.0.0-semantically-released",
-  "private": true,
   "description": "A calculator of AI contributions based on PRs and commits.",
   "repository": "github:WillBooster/calc-ai-contrib",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "author": "WillBooster Inc.",
   "type": "module",
   "bin": "bin/index.js",
