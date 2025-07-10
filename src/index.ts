@@ -2,7 +2,9 @@ import ansis from 'ansis';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { analyzePullRequestsByDateRangeMultiRepo } from './analyzer.js';
-import { formatAnalysisResult } from './format.js';
+import { hasExclusionOptions } from './exclusions.js';
+import { formatAnalysisResult, logExclusionOptions } from './format.js';
+import { parseRepositories, validateDateRange, validateRepositoryFormat } from './utils.js';
 
 async function main() {
   try {
@@ -52,30 +54,9 @@ async function main() {
         default: false,
       })
       .check((argv) => {
-        // Validate repository format
         const repos = argv.repo as string[];
-        for (const repo of repos) {
-          if (!repo.includes('/') || repo.split('/').length !== 2) {
-            throw new Error(`Invalid repository format: "${repo}". Expected format: "owner/repo"`);
-          }
-        }
-
-        // Validate date format
-        const startDate = new Date(argv['start-date']);
-        const endDate = new Date(argv['end-date']);
-
-        if (Number.isNaN(startDate.getTime())) {
-          throw new Error('Invalid start-date format. Use YYYY-MM-DD');
-        }
-
-        if (Number.isNaN(endDate.getTime())) {
-          throw new Error('Invalid end-date format. Use YYYY-MM-DD');
-        }
-
-        if (startDate > endDate) {
-          throw new Error('start-date must be before or equal to end-date');
-        }
-
+        validateRepositoryFormat(repos);
+        validateDateRange(argv['start-date'], argv['end-date']);
         return true;
       })
       .help()
@@ -116,10 +97,7 @@ async function main() {
     } = argv;
 
     // Parse repository specifications
-    const repositories = (repos as string[]).map((repoSpec) => {
-      const [owner, repo] = repoSpec.split('/');
-      return { owner, repo };
-    });
+    const repositories = parseRepositories(repos as string[]);
 
     // Build exclusion options
     const exclusionOptions = {
@@ -131,33 +109,8 @@ async function main() {
     };
 
     // Log exclusion options if any are provided and verbose mode is enabled
-    const hasExclusions =
-      exclusionOptions.excludeFiles?.length ||
-      exclusionOptions.excludeUsers?.length ||
-      exclusionOptions.excludeEmails?.length ||
-      exclusionOptions.excludeCommitMessages?.length ||
-      exclusionOptions.aiEmails?.length;
-
-    if (hasExclusions && verbose) {
-      console.log(ansis.dim('\nOptions:'));
-      if (exclusionOptions.excludeFiles?.length) {
-        console.log(ansis.dim(`  Exclude files: ${exclusionOptions.excludeFiles.join(', ')}`));
-      }
-      if (exclusionOptions.excludeUsers?.length) {
-        console.log(ansis.dim(`  Exclude users: ${exclusionOptions.excludeUsers.join(', ')}`));
-      }
-      if (exclusionOptions.excludeEmails?.length) {
-        console.log(ansis.dim(`  Exclude emails: ${exclusionOptions.excludeEmails.join(', ')}`));
-      }
-      if (exclusionOptions.excludeCommitMessages?.length) {
-        console.log(
-          ansis.dim(`  Exclude commit messages containing: ${exclusionOptions.excludeCommitMessages.join(', ')}`)
-        );
-      }
-      if (exclusionOptions.aiEmails?.length) {
-        console.log(ansis.dim(`  AI emails: ${exclusionOptions.aiEmails.join(', ')}`));
-      }
-      console.log('');
+    if (hasExclusionOptions(exclusionOptions) && verbose) {
+      logExclusionOptions(exclusionOptions, ansis);
     }
 
     console.log(

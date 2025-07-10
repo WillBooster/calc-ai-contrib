@@ -1,5 +1,45 @@
 import type { BaseAnalysisResult, DateRangeAnalysisResult, ExclusionOptions, PRAnalysisResult } from './types.js';
 
+/**
+ * Format user information string
+ */
+export function formatUserInfo(user: string, name?: string, email?: string): string {
+  const nameInfo = name ? ` (${name})` : '';
+  const emailInfo = email ? ` <${email}>` : '';
+  return `${user}${nameInfo}${emailInfo}`;
+}
+
+/**
+ * Create a progress bar string
+ */
+export function createProgressBar(percentage: number, length: number = 16): string {
+  const bars = Math.round((percentage / 100) * length);
+  return '█'.repeat(bars) + '░'.repeat(length - bars);
+}
+
+/**
+ * Log exclusion options if any are provided
+ */
+export function logExclusionOptions(options: ExclusionOptions, ansis: any): void {
+  console.log(ansis.dim('\nOptions:'));
+  if (options.excludeFiles?.length) {
+    console.log(ansis.dim(`  Exclude files: ${options.excludeFiles.join(', ')}`));
+  }
+  if (options.excludeUsers?.length) {
+    console.log(ansis.dim(`  Exclude users: ${options.excludeUsers.join(', ')}`));
+  }
+  if (options.excludeEmails?.length) {
+    console.log(ansis.dim(`  Exclude emails: ${options.excludeEmails.join(', ')}`));
+  }
+  if (options.excludeCommitMessages?.length) {
+    console.log(ansis.dim(`  Exclude commit messages containing: ${options.excludeCommitMessages.join(', ')}`));
+  }
+  if (options.aiEmails?.length) {
+    console.log(ansis.dim(`  AI emails: ${options.aiEmails.join(', ')}`));
+  }
+  console.log('');
+}
+
 export function formatAnalysisResult(
   result: PRAnalysisResult | DateRangeAnalysisResult,
   exclusionOptions: ExclusionOptions = {}
@@ -39,14 +79,10 @@ function formatHeader(result: PRAnalysisResult | DateRangeAnalysisResult, hasAIE
   if (hasAIEmails) {
     const humanPercentage = result.humanContributions.percentage;
     const aiPercentage = result.aiContributions.percentage;
-    const barLength = 22;
-    const aiBars = Math.round((aiPercentage / 100) * barLength);
-    const humanBars = barLength - aiBars;
+    const progressBar = createProgressBar(aiPercentage, 22);
 
     lines.push('╠══════════════════════════════════════════════════╣');
-    lines.push(
-      `║ ${`AI vs Human: [${'█'.repeat(aiBars) + '░'.repeat(humanBars)}] ${aiPercentage}% / ${humanPercentage}%`.padEnd(48)} ║`
-    );
+    lines.push(`║ ${`AI vs Human: [${progressBar}] ${aiPercentage}% / ${humanPercentage}%`.padEnd(48)} ║`);
     lines.push(
       `║ ${`Contributors: ${result.aiContributions.peopleCount} AI, ${result.humanContributions.peopleCount} Human`.padEnd(48)} ║`
     );
@@ -88,15 +124,10 @@ function formatIndividualContributions(result: PRAnalysisResult | DateRangeAnaly
     lines.push(message);
   } else {
     for (const contribution of result.userContributions) {
-      const userInfo = contribution.user;
-      const nameInfo = contribution.name ? ` (${contribution.name})` : '';
-      const emailInfo = contribution.email ? ` <${contribution.email}>` : '';
+      const userInfo = formatUserInfo(contribution.user, contribution.name, contribution.email);
+      const userBar = createProgressBar(contribution.percentage);
 
-      const userBarLength = 16;
-      const userBars = Math.round((contribution.percentage / 100) * userBarLength);
-      const userBar = '█'.repeat(userBars) + '░'.repeat(userBarLength - userBars);
-
-      lines.push(`${userInfo}${nameInfo}${emailInfo}:`);
+      lines.push(`${userInfo}:`);
       lines.push(
         `  [${userBar}] ${contribution.percentage}% | ${contribution.totalLines.toLocaleString().padStart(6)} Edits: (+${contribution.additions.toLocaleString()} / -${contribution.deletions.toLocaleString()})`
       );
