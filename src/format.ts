@@ -109,16 +109,22 @@ function formatDetailedBreakdown(result: BaseAnalysisResult, hasAIEmails: boolea
   if (hasAIEmails) {
     lines.push('📊 DETAILED BREAKDOWN');
     lines.push('─'.repeat(40));
+
+    // Create progress bars for each category
+    const aiBar = createProgressBar(result.aiContributions.percentage);
+    const humanBar = createProgressBar(result.humanContributions.percentage);
+    const pairBar = createProgressBar(result.pairContributions.percentage);
+
     lines.push(
-      `🤖 AI   : ${result.aiContributions.totalEditLines.toLocaleString().padStart(8)} Edits (+${result.aiContributions.totalAdditions.toLocaleString()} / -${result.aiContributions.totalDeletions.toLocaleString()})`
+      `🤖 AI   : [${aiBar}] ${result.aiContributions.percentage.toString().padStart(3)}% | ${result.aiContributions.totalEditLines.toLocaleString().padStart(8)} Edits (+${result.aiContributions.totalAdditions.toLocaleString()} / -${result.aiContributions.totalDeletions.toLocaleString()})`
     );
     lines.push(
-      `👥 Human: ${result.humanContributions.totalEditLines.toLocaleString().padStart(8)} Edits (+${result.humanContributions.totalAdditions.toLocaleString()} / -${result.humanContributions.totalDeletions.toLocaleString()})`
+      `👥 Human: [${humanBar}] ${result.humanContributions.percentage.toString().padStart(3)}% | ${result.humanContributions.totalEditLines.toLocaleString().padStart(8)} Edits (+${result.humanContributions.totalAdditions.toLocaleString()} / -${result.humanContributions.totalDeletions.toLocaleString()})`
     );
 
     if (result.pairContributions.percentage > 0) {
       lines.push(
-        `🤝 Pair : ${result.pairContributions.totalEditLines.toLocaleString().padStart(8)} Edits (+${result.pairContributions.totalAdditions.toLocaleString()} / -${result.pairContributions.totalDeletions.toLocaleString()})`
+        `🤝 Pair : [${pairBar}] ${result.pairContributions.percentage.toString().padStart(3)}% | ${result.pairContributions.totalEditLines.toLocaleString().padStart(8)} Edits (+${result.pairContributions.totalAdditions.toLocaleString()} / -${result.pairContributions.totalDeletions.toLocaleString()})`
       );
     }
 
