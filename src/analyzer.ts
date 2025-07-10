@@ -1,5 +1,13 @@
 import { config } from 'dotenv';
+import micromatch from 'micromatch';
 import { Octokit } from 'octokit';
+
+interface ExclusionOptions {
+  excludeFiles?: string[];
+  excludeUsers?: string[];
+  excludeEmails?: string[];
+  excludeCommitMessages?: string[];
+}
 
 interface UserContribution {
   user: string;
@@ -40,7 +48,12 @@ const octokit = new Octokit({
 // Use Octokit's built-in types for commits
 type GitHubCommit = Awaited<ReturnType<typeof octokit.rest.pulls.listCommits>>['data'][0];
 
-export async function analyzePullRequest(owner: string, repo: string, prNumber: number): Promise<PRAnalysisResult> {
+export async function analyzePullRequest(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  exclusionOptions: ExclusionOptions = {}
+): Promise<PRAnalysisResult> {
   // Get the files changed in the PR
   const filesResponse = await octokit.rest.pulls.listFiles({
     owner,
@@ -50,8 +63,8 @@ export async function analyzePullRequest(owner: string, repo: string, prNumber: 
 
   const files = filesResponse.data;
 
-  let totalAdditions = 0;
-  let totalDeletions = 0;
+  let _totalAdditions = 0;
+  let _totalDeletions = 0;
   const userStats = new Map<string, { additions: number; deletions: number; name?: string; email?: string }>();
 
   console.log(`Analyzing ${files.length} changed files...`);
@@ -61,16 +74,41 @@ export async function analyzePullRequest(owner: string, repo: string, prNumber: 
   const allCommits = await getPRCommits(owner, repo, prNumber);
   console.log(`Found ${allCommits.length} commits in PR`);
 
+  // Filter commits based on exclusion options
+  const filteredCommits = allCommits.filter((commit) => {
+    const commitMessage = commit.commit?.message || '';
+    return !shouldExcludeCommit(commitMessage, exclusionOptions.excludeCommitMessages);
+  });
+
+  if (filteredCommits.length !== allCommits.length) {
+    console.log(`Filtered out ${allCommits.length - filteredCommits.length} commits based on exclusion criteria`);
+  }
+
+  // Filter files based on exclusion options
+  const filteredFiles = files.filter((file) => {
+    return !shouldExcludeFile(file.filename, exclusionOptions.excludeFiles);
+  });
+
+  if (filteredFiles.length !== files.length) {
+    console.log(`Filtered out ${files.length - filteredFiles.length} files based on exclusion criteria`);
+  }
+
   // Simple approach: distribute file changes proportionally among commit authors
-  for (const file of files) {
+  for (const file of filteredFiles) {
     console.log(`Processing file: ${file.filename} (+${file.additions}/-${file.deletions})`);
-    totalAdditions += file.additions;
-    totalDeletions += file.deletions;
+    _totalAdditions += file.additions;
+    _totalDeletions += file.deletions;
 
     // Find commits that likely touched this file based on the commit messages or use simple distribution
-    const fileContributors = distributeFileContributions(allCommits, file);
+    const fileContributors = distributeFileContributions(filteredCommits, file);
 
     for (const [author, stats] of fileContributors) {
+      // Check if user should be excluded
+      if (shouldExcludeUser(author, stats.name, stats.email, exclusionOptions)) {
+        console.log(`Excluding user: ${author} (${stats.name || 'no name'}) <${stats.email || 'no email'}>`);
+        continue;
+      }
+
       const currentStats = userStats.get(author) || {
         additions: 0,
         deletions: 0,
@@ -105,19 +143,25 @@ export async function analyzePullRequest(owner: string, repo: string, prNumber: 
     });
   }
 
-  const totalEditLines = totalAdditions + totalDeletions;
+  // Calculate total edit lines from actual user contributions (after exclusions)
+  const actualTotalEditLines = userContributions.reduce((sum, contrib) => sum + contrib.totalLines, 0);
 
   for (const contribution of userContributions) {
-    contribution.percentage = totalEditLines > 0 ? Math.round((contribution.totalLines / totalEditLines) * 100) : 0;
+    contribution.percentage =
+      actualTotalEditLines > 0 ? Math.round((contribution.totalLines / actualTotalEditLines) * 100) : 0;
   }
 
   userContributions.sort((a, b) => b.totalLines - a.totalLines);
 
+  // Calculate actual totals from user contributions (after exclusions)
+  const actualTotalAdditions = userContributions.reduce((sum, contrib) => sum + contrib.additions, 0);
+  const actualTotalDeletions = userContributions.reduce((sum, contrib) => sum + contrib.deletions, 0);
+
   return {
     prNumber,
-    totalAdditions,
-    totalDeletions,
-    totalEditLines,
+    totalAdditions: actualTotalAdditions,
+    totalDeletions: actualTotalDeletions,
+    totalEditLines: actualTotalEditLines,
     userContributions,
   };
 }
@@ -313,7 +357,8 @@ export async function analyzePullRequestsByDateRange(
   owner: string,
   repo: string,
   startDate: string,
-  endDate: string
+  endDate: string,
+  exclusionOptions: ExclusionOptions = {}
 ): Promise<DateRangeAnalysisResult> {
   const prNumbers = await findPRsByDateRange(owner, repo, startDate, endDate);
 
@@ -344,7 +389,7 @@ export async function analyzePullRequestsByDateRange(
     console.log(`\n[${i + 1}/${prNumbers.length}] Analyzing PR #${prNumber}...`);
 
     try {
-      const prResult = await analyzePullRequest(owner, repo, prNumber);
+      const prResult = await analyzePullRequest(owner, repo, prNumber, exclusionOptions);
 
       totalAdditions += prResult.totalAdditions;
       totalDeletions += prResult.totalDeletions;
@@ -410,4 +455,34 @@ export async function analyzePullRequestsByDateRange(
     totalEditLines,
     userContributions,
   };
+}
+
+// Helper functions for exclusion filtering
+function shouldExcludeFile(filename: string, excludePatterns: string[] = []): boolean {
+  return excludePatterns.some((pattern) => micromatch.isMatch(filename, pattern));
+}
+
+function shouldExcludeUser(
+  user: string,
+  _name: string | undefined,
+  email: string | undefined,
+  exclusionOptions: ExclusionOptions
+): boolean {
+  const { excludeUsers = [], excludeEmails = [] } = exclusionOptions;
+
+  // Check if user should be excluded by username
+  if (excludeUsers.includes(user)) {
+    return true;
+  }
+
+  // Check if user should be excluded by email
+  if (email && excludeEmails.includes(email)) {
+    return true;
+  }
+
+  return false;
+}
+
+function shouldExcludeCommit(commitMessage: string, excludePatterns: string[] = []): boolean {
+  return excludePatterns.some((pattern) => commitMessage.includes(pattern));
 }
