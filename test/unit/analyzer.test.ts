@@ -318,4 +318,71 @@ Co-authored-by: AI Assistant <ai@willbooster.com>`;
       )
     ).toBe(false);
   });
+
+  test('should detect pair programming in PR #16 with Co-authored-by commits', async () => {
+    const repositories = [{ owner: 'WillBooster', repo: 'calc-ai-contrib' }];
+    const startDate = '2025-07-10';
+    const endDate = '2025-07-10';
+
+    // Test with AI emails that should detect pair programming
+    const resultWithAI = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate, {
+      aiEmails: ['agent@willbooster.com'],
+    });
+
+    // Verify concrete expected values based on the actual data from 2025-07-10
+    expect(resultWithAI.totalPRs).toBe(7);
+    expect(resultWithAI.prNumbers).toEqual([10, 11, 12, 13, 14, 15, 16]);
+    expect(resultWithAI.totalAdditions).toBe(1582);
+    expect(resultWithAI.totalDeletions).toBe(1447);
+    expect(resultWithAI.totalEditLines).toBe(3029);
+
+    // Check human contributions
+    expect(resultWithAI.humanContributions.totalAdditions).toBe(1219);
+    expect(resultWithAI.humanContributions.totalDeletions).toBe(1064);
+    expect(resultWithAI.humanContributions.totalEditLines).toBe(2283);
+    expect(resultWithAI.humanContributions.percentage).toBe(75);
+    expect(resultWithAI.humanContributions.peopleCount).toBe(2);
+
+    // Check AI contributions (should be 0 since agent@willbooster.com appears only as co-author)
+    expect(resultWithAI.aiContributions.totalAdditions).toBe(0);
+    expect(resultWithAI.aiContributions.totalDeletions).toBe(0);
+    expect(resultWithAI.aiContributions.totalEditLines).toBe(0);
+    expect(resultWithAI.aiContributions.percentage).toBe(0);
+    expect(resultWithAI.aiContributions.peopleCount).toBe(0);
+
+    // Check pair programming contributions
+    expect(resultWithAI.pairContributions.totalAdditions).toBe(363);
+    expect(resultWithAI.pairContributions.totalDeletions).toBe(383);
+    expect(resultWithAI.pairContributions.totalEditLines).toBe(746);
+    expect(resultWithAI.pairContributions.percentage).toBe(25);
+    expect(resultWithAI.pairContributions.peopleCount).toBe(0);
+
+    // Verify that the percentages add up to 100
+    expect(
+      resultWithAI.humanContributions.percentage +
+        resultWithAI.aiContributions.percentage +
+        resultWithAI.pairContributions.percentage
+    ).toBe(100);
+
+    // Test without AI emails (should have zero pair programming)
+    const resultWithoutAI = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate);
+
+    expect(resultWithoutAI.totalPRs).toBe(7);
+    expect(resultWithoutAI.totalEditLines).toBe(3029);
+
+    // Without AI emails, all contributions should be considered human
+    expect(resultWithoutAI.humanContributions.totalEditLines).toBe(3029);
+    expect(resultWithoutAI.humanContributions.percentage).toBe(100);
+    expect(resultWithoutAI.humanContributions.peopleCount).toBe(2);
+
+    // No AI contributions when no AI emails are specified
+    expect(resultWithoutAI.aiContributions.totalEditLines).toBe(0);
+    expect(resultWithoutAI.aiContributions.percentage).toBe(0);
+    expect(resultWithoutAI.aiContributions.peopleCount).toBe(0);
+
+    // No pair programming when no AI emails are specified
+    expect(resultWithoutAI.pairContributions.totalEditLines).toBe(0);
+    expect(resultWithoutAI.pairContributions.percentage).toBe(0);
+    expect(resultWithoutAI.pairContributions.peopleCount).toBe(0);
+  }, 60000);
 });
