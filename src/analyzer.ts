@@ -198,125 +198,167 @@ export async function analyzePullRequest(
   };
 }
 
-// Helper function to format header for different result types
-function formatHeader(result: PRAnalysisResult | DateRangeAnalysisResult, hasAIEmails: boolean): string[] {
+export function formatAnalysisResult(result: PRAnalysisResult, exclusionOptions: ExclusionOptions = {}): string {
   const lines: string[] = [];
 
-  lines.push('╔══════════════════════════════════════════════════╗');
-  lines.push('║           CONTRIBUTION ANALYSIS REPORT           ║');
-  lines.push('╠══════════════════════════════════════════════════╣');
+  lines.push('╔══════════════════════════════════════════════════════════════════════════════════════╗');
+  lines.push(
+    `║                              PR #${result.prNumber.toString().padEnd(4)} ANALYSIS REPORT                              ║`
+  );
+  lines.push('╚══════════════════════════════════════════════════════════════════════════════════════╝');
+  lines.push('');
 
-  if ('prNumber' in result) {
-    // PR Analysis Result
-    lines.push(
-      `║ PR #${result.prNumber.toString().padEnd(4)}                     │ Edits: ${result.totalEditLines.toLocaleString().padEnd(6)} ║`
-    );
-    lines.push(
-      `║ Total: +${result.totalAdditions.toLocaleString().padEnd(6)} -${result.totalDeletions.toLocaleString().padEnd(6)}                           ║`
-    );
-  } else {
-    // Date Range Analysis Result
-    lines.push(
-      `║ Date: ${result.startDate} to ${result.endDate.padEnd(12)} │ PRs: ${result.totalPRs.toString().padEnd(3)} ║`
-    );
-    lines.push(
-      `║ Total Edits: ${result.totalEditLines.toLocaleString().padEnd(8)} │ +${result.totalAdditions.toLocaleString().padEnd(6)} -${result.totalDeletions.toLocaleString().padEnd(6)} ║`
-    );
-  }
+  lines.push('📊 SUMMARY STATISTICS');
+  lines.push('─'.repeat(50));
+  lines.push(`Total Additions: ${result.totalAdditions.toLocaleString()}`);
+  lines.push(`Total Deletions: ${result.totalDeletions.toLocaleString()}`);
+  lines.push(`Total Edit Lines: ${result.totalEditLines.toLocaleString()}`);
+  lines.push('');
 
-  // Add Human vs AI info to header if available
+  const hasAIEmails = exclusionOptions.aiEmails && exclusionOptions.aiEmails.length > 0;
   if (hasAIEmails) {
+    lines.push('🤖 HUMAN vs AI BREAKDOWN');
+    lines.push('─'.repeat(50));
+
     const humanPercentage = result.humanContributions.percentage;
     const aiPercentage = result.aiContributions.percentage;
-    const barLength = 24;
+    const barLength = 40;
     const humanBars = Math.round((humanPercentage / 100) * barLength);
     const aiBars = barLength - humanBars;
 
-    lines.push('╠══════════════════════════════════════════════════════════════════╣');
-    lines.push(`║ Human vs AI: [${'█'.repeat(humanBars) + '░'.repeat(aiBars)}] ${humanPercentage}%/${aiPercentage}% ║`);
+    lines.push(`┌${'─'.repeat(barLength + 2)}┐`);
+    lines.push(`│${'█'.repeat(humanBars)}${'░'.repeat(aiBars)}│`);
+    lines.push(`└${'─'.repeat(barLength + 2)}┘`);
     lines.push(
-      `║ Contributors: ${result.humanContributions.peopleCount} Human, ${result.aiContributions.peopleCount} AI${' '.repeat(Math.max(0, 25 - result.humanContributions.peopleCount.toString().length - result.aiContributions.peopleCount.toString().length))} ║`
+      `  Human: ${humanPercentage}%${' '.repeat(Math.max(0, 30 - humanPercentage.toString().length))}AI: ${aiPercentage}%`
     );
+    lines.push('');
+
+    lines.push(`👥 Human Contributors: ${result.humanContributions.percentage}%`);
+    lines.push(`   • Additions: +${result.humanContributions.totalAdditions.toLocaleString()}`);
+    lines.push(`   • Deletions: -${result.humanContributions.totalDeletions.toLocaleString()}`);
+    lines.push(`   • Total Edits: ${result.humanContributions.totalEditLines.toLocaleString()}`);
+    lines.push(`   • People: ${result.humanContributions.peopleCount}`);
+    lines.push('');
+
+    lines.push(`🤖 AI Contributors: ${result.aiContributions.percentage}%`);
+    lines.push(`   • Additions: +${result.aiContributions.totalAdditions.toLocaleString()}`);
+    lines.push(`   • Deletions: -${result.aiContributions.totalDeletions.toLocaleString()}`);
+    lines.push(`   • Total Edits: ${result.aiContributions.totalEditLines.toLocaleString()}`);
+    lines.push(`   • People: ${result.aiContributions.peopleCount}`);
+    lines.push('');
   }
 
-  lines.push('╚══════════════════════════════════════════════════════════════════╝');
-  lines.push('');
+  lines.push('👤 INDIVIDUAL CONTRIBUTIONS');
+  lines.push('─'.repeat(50));
 
-  return lines;
-}
+  for (const contribution of result.userContributions) {
+    const userInfo = contribution.user;
+    const nameInfo = contribution.name ? ` (${contribution.name})` : '';
+    const emailInfo = contribution.email ? ` <${contribution.email}>` : '';
 
-// Helper function to format detailed breakdown section
-function formatDetailedBreakdown(result: BaseAnalysisResult, hasAIEmails: boolean): string[] {
-  const lines: string[] = [];
+    const userBarLength = 20;
+    const userBars = Math.round((contribution.percentage / 100) * userBarLength);
+    const userBar = '█'.repeat(userBars) + '░'.repeat(userBarLength - userBars);
 
-  if (hasAIEmails) {
-    lines.push('📊 DETAILED BREAKDOWN');
-    lines.push('─'.repeat(40));
+    lines.push(`${userInfo}${nameInfo}${emailInfo}:`);
+    lines.push(`  [${userBar}] ${contribution.percentage}%`);
     lines.push(
-      `👥 Human: +${result.humanContributions.totalAdditions.toLocaleString()} -${result.humanContributions.totalDeletions.toLocaleString()} (${result.humanContributions.totalEditLines.toLocaleString()} total)`
-    );
-    lines.push(
-      `🤖 AI: +${result.aiContributions.totalAdditions.toLocaleString()} -${result.aiContributions.totalDeletions.toLocaleString()} (${result.aiContributions.totalEditLines.toLocaleString()} total)`
+      `  +${contribution.additions.toLocaleString()} / -${contribution.deletions.toLocaleString()} (${contribution.totalLines.toLocaleString()} total)`
     );
     lines.push('');
   }
 
-  return lines;
+  return lines.join('\n');
 }
 
-// Helper function to format individual contributions section
-function formatIndividualContributions(result: PRAnalysisResult | DateRangeAnalysisResult): string[] {
+export function formatDateRangeAnalysisResult(
+  result: DateRangeAnalysisResult,
+  exclusionOptions: ExclusionOptions = {}
+): string {
   const lines: string[] = [];
 
+  lines.push('╔══════════════════════════════════════════════════════════════════════════════════════╗');
+  lines.push(`║                           CONTRIBUTION ANALYSIS REPORT                              ║`);
+  lines.push('╠══════════════════════════════════════════════════════════════════════════════════════╣');
+  lines.push(
+    `║ Date Range: ${result.startDate} to ${result.endDate}${' '.repeat(Math.max(0, 47 - result.startDate.length - result.endDate.length))}║`
+  );
+  lines.push(
+    `║ Total PRs:  ${result.totalPRs.toString().padEnd(10)} │ Total Edits: ${result.totalEditLines.toString().padEnd(25)}║`
+  );
+  lines.push(
+    `║ PR Numbers: ${result.prNumbers.slice(0, 8).join(', ')}${result.prNumbers.length > 8 ? '...' : ''}${' '.repeat(Math.max(0, 65 - result.prNumbers.slice(0, 8).join(', ').length - (result.prNumbers.length > 8 ? 3 : 0)))}║`
+  );
+  lines.push('╚══════════════════════════════════════════════════════════════════════════════════════╝');
+  lines.push('');
+
+  lines.push('📊 SUMMARY STATISTICS');
+  lines.push('─'.repeat(50));
+  lines.push(`Total Additions: ${result.totalAdditions.toLocaleString()}`);
+  lines.push(`Total Deletions: ${result.totalDeletions.toLocaleString()}`);
+  lines.push(`Total Edit Lines: ${result.totalEditLines.toLocaleString()}`);
+  lines.push('');
+
+  const hasAIEmails = exclusionOptions.aiEmails && exclusionOptions.aiEmails.length > 0;
+  if (hasAIEmails) {
+    lines.push('🤖 HUMAN vs AI BREAKDOWN');
+    lines.push('─'.repeat(50));
+
+    const humanPercentage = result.humanContributions.percentage;
+    const aiPercentage = result.aiContributions.percentage;
+    const barLength = 40;
+    const humanBars = Math.round((humanPercentage / 100) * barLength);
+    const aiBars = barLength - humanBars;
+
+    lines.push(`┌${'─'.repeat(barLength + 2)}┐`);
+    lines.push(`│${'█'.repeat(humanBars)}${'░'.repeat(aiBars)}│`);
+    lines.push(`└${'─'.repeat(barLength + 2)}┘`);
+    lines.push(
+      `  Human: ${humanPercentage}%${' '.repeat(Math.max(0, 30 - humanPercentage.toString().length))}AI: ${aiPercentage}%`
+    );
+    lines.push('');
+
+    lines.push(`👥 Human Contributors: ${result.humanContributions.percentage}%`);
+    lines.push(`   • Additions: +${result.humanContributions.totalAdditions.toLocaleString()}`);
+    lines.push(`   • Deletions: -${result.humanContributions.totalDeletions.toLocaleString()}`);
+    lines.push(`   • Total Edits: ${result.humanContributions.totalEditLines.toLocaleString()}`);
+    lines.push(`   • Users: ${result.humanContributions.peopleCount}`);
+    lines.push('');
+
+    lines.push(`🤖 AI Contributors: ${result.aiContributions.percentage}%`);
+    lines.push(`   • Additions: +${result.aiContributions.totalAdditions.toLocaleString()}`);
+    lines.push(`   • Deletions: -${result.aiContributions.totalDeletions.toLocaleString()}`);
+    lines.push(`   • Total Edits: ${result.aiContributions.totalEditLines.toLocaleString()}`);
+    lines.push(`   • Users: ${result.aiContributions.peopleCount}`);
+    lines.push('');
+  }
+
   lines.push('👤 INDIVIDUAL CONTRIBUTIONS');
-  lines.push('─'.repeat(40));
+  lines.push('─'.repeat(50));
 
   if (result.userContributions.length === 0) {
-    const message =
-      'startDate' in result ? 'No contributions found in the specified date range.' : 'No contributions found.';
-    lines.push(message);
+    lines.push('No contributions found in the specified date range.');
   } else {
     for (const contribution of result.userContributions) {
       const userInfo = contribution.user;
       const nameInfo = contribution.name ? ` (${contribution.name})` : '';
       const emailInfo = contribution.email ? ` <${contribution.email}>` : '';
 
-      const userBarLength = 16;
+      const userBarLength = 20;
       const userBars = Math.round((contribution.percentage / 100) * userBarLength);
       const userBar = '█'.repeat(userBars) + '░'.repeat(userBarLength - userBars);
 
-      lines.push(`${userInfo}${nameInfo}${emailInfo}: [${userBar}] ${contribution.percentage}%`);
+      lines.push(`${userInfo}${nameInfo}${emailInfo}:`);
+      lines.push(`  [${userBar}] ${contribution.percentage}%`);
       lines.push(
-        `  +${contribution.additions.toLocaleString()} -${contribution.deletions.toLocaleString()} (${contribution.totalLines.toLocaleString()} total)`
+        `  +${contribution.additions.toLocaleString()} / -${contribution.deletions.toLocaleString()} (${contribution.totalLines.toLocaleString()} total)`
       );
       lines.push('');
     }
   }
 
-  return lines;
-}
-
-export function formatAnalysisResult(
-  result: PRAnalysisResult | DateRangeAnalysisResult,
-  exclusionOptions: ExclusionOptions = {}
-): string {
-  const hasAIEmails = Boolean(exclusionOptions.aiEmails && exclusionOptions.aiEmails.length > 0);
-
-  const lines: string[] = [
-    ...formatHeader(result, hasAIEmails),
-    ...formatDetailedBreakdown(result, hasAIEmails),
-    ...formatIndividualContributions(result),
-  ];
-
   return lines.join('\n');
-}
-
-// Legacy function for backward compatibility - now just calls the unified function
-export function formatDateRangeAnalysisResult(
-  result: DateRangeAnalysisResult,
-  exclusionOptions: ExclusionOptions = {}
-): string {
-  return formatAnalysisResult(result, exclusionOptions);
 }
 
 async function getPRCommits(owner: string, repo: string, prNumber: number): Promise<GitHubCommit[]> {
