@@ -330,17 +330,17 @@ Co-authored-by: AI Assistant <ai@willbooster.com>`;
     });
 
     // Verify concrete expected values based on the actual data from 2025-07-10
-    expect(resultWithAI.totalPRs).toBe(8);
-    expect(resultWithAI.prNumbers).toEqual([10, 11, 12, 13, 14, 15, 16, 17]);
-    expect(resultWithAI.totalAdditions).toBe(1595);
-    expect(resultWithAI.totalDeletions).toBe(1455);
-    expect(resultWithAI.totalEditLines).toBe(3050);
+    expect(resultWithAI.totalPRs).toBe(9);
+    expect(resultWithAI.prNumbers).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18]);
+    expect(resultWithAI.totalAdditions).toBe(2034);
+    expect(resultWithAI.totalDeletions).toBe(1502);
+    expect(resultWithAI.totalEditLines).toBe(3536);
 
     // Check human contributions
-    expect(resultWithAI.humanContributions.totalAdditions).toBe(1228);
-    expect(resultWithAI.humanContributions.totalDeletions).toBe(1070);
-    expect(resultWithAI.humanContributions.totalEditLines).toBe(2298);
-    expect(resultWithAI.humanContributions.percentage).toBe(75);
+    expect(resultWithAI.humanContributions.totalAdditions).toBe(1667);
+    expect(resultWithAI.humanContributions.totalDeletions).toBe(1117);
+    expect(resultWithAI.humanContributions.totalEditLines).toBe(2784);
+    expect(resultWithAI.humanContributions.percentage).toBe(79);
     expect(resultWithAI.humanContributions.peopleCount).toBe(2);
 
     // Check AI contributions (should be 0 since agent@willbooster.com appears only as co-author)
@@ -354,7 +354,7 @@ Co-authored-by: AI Assistant <ai@willbooster.com>`;
     expect(resultWithAI.pairContributions.totalAdditions).toBe(367);
     expect(resultWithAI.pairContributions.totalDeletions).toBe(385);
     expect(resultWithAI.pairContributions.totalEditLines).toBe(752);
-    expect(resultWithAI.pairContributions.percentage).toBe(25);
+    expect(resultWithAI.pairContributions.percentage).toBe(21);
     expect(resultWithAI.pairContributions.peopleCount).toBe(0);
 
     // Verify that the percentages add up to 100
@@ -367,11 +367,11 @@ Co-authored-by: AI Assistant <ai@willbooster.com>`;
     // Test without AI emails (should have zero pair programming)
     const resultWithoutAI = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate);
 
-    expect(resultWithoutAI.totalPRs).toBe(8);
-    expect(resultWithoutAI.totalEditLines).toBe(3050);
+    expect(resultWithoutAI.totalPRs).toBe(9);
+    expect(resultWithoutAI.totalEditLines).toBe(3536);
 
     // Without AI emails, all contributions should be considered human
-    expect(resultWithoutAI.humanContributions.totalEditLines).toBe(3050);
+    expect(resultWithoutAI.humanContributions.totalEditLines).toBe(3536);
     expect(resultWithoutAI.humanContributions.percentage).toBe(100);
     expect(resultWithoutAI.humanContributions.peopleCount).toBe(2);
 

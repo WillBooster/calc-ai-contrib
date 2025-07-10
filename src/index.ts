@@ -29,7 +29,8 @@ async function main() {
       })
       .option('exclude-files', {
         type: 'array',
-        description: 'Glob patterns for files to exclude (e.g., "*.md" "test/**")',
+        description: 'Glob patterns for files to exclude (default: "**/dist/**")',
+        default: ['**/dist/**'],
       })
       .option('exclude-users', {
         type: 'array',
