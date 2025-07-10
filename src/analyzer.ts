@@ -480,6 +480,117 @@ async function findPRsByDateRange(owner: string, repo: string, startDate: string
   return prNumbers.sort((a, b) => a - b);
 }
 
+interface Repository {
+  owner: string;
+  repo: string;
+}
+
+export async function analyzePullRequestsByDateRangeMultiRepo(
+  repositories: Repository[],
+  startDate: string,
+  endDate: string,
+  exclusionOptions: ExclusionOptions = {}
+): Promise<DateRangeAnalysisResult> {
+  console.log(`Analyzing ${repositories.length} repositories...`);
+
+  let totalAdditions = 0;
+  let totalDeletions = 0;
+  const aggregatedUserStats = new Map<string, UserStats>();
+  const allPrNumbers: number[] = [];
+
+  for (const { owner, repo } of repositories) {
+    console.log(`\nProcessing repository: ${owner}/${repo}`);
+
+    try {
+      const repoResult = await analyzePullRequestsByDateRange(owner, repo, startDate, endDate, exclusionOptions);
+
+      totalAdditions += repoResult.totalAdditions;
+      totalDeletions += repoResult.totalDeletions;
+      allPrNumbers.push(...repoResult.prNumbers);
+
+      // Aggregate user contributions across repositories
+      for (const contribution of repoResult.userContributions) {
+        const currentStats = aggregatedUserStats.get(contribution.user) || {
+          additions: 0,
+          deletions: 0,
+          name: contribution.name,
+          email: contribution.email,
+        };
+
+        currentStats.additions += contribution.additions;
+        currentStats.deletions += contribution.deletions;
+
+        if (!currentStats.name && contribution.name) {
+          currentStats.name = contribution.name;
+        }
+        if (!currentStats.email && contribution.email) {
+          currentStats.email = contribution.email;
+        }
+
+        aggregatedUserStats.set(contribution.user, currentStats);
+      }
+    } catch (error) {
+      console.error(`Error analyzing repository ${owner}/${repo}:`, error);
+      // Continue with other repositories
+    }
+  }
+
+  const totalEditLines = totalAdditions + totalDeletions;
+
+  // Convert aggregated stats to user contributions
+  const userContributions: UserContribution[] = Array.from(aggregatedUserStats.entries())
+    .map(([user, stats]) => ({
+      user,
+      name: stats.name,
+      email: stats.email,
+      additions: stats.additions,
+      deletions: stats.deletions,
+      totalLines: stats.additions + stats.deletions,
+      percentage: totalEditLines > 0 ? Math.round(((stats.additions + stats.deletions) / totalEditLines) * 100) : 0,
+    }))
+    .sort((a, b) => b.totalLines - a.totalLines);
+
+  // Calculate human vs AI contributions
+  const aiEmails = exclusionOptions.aiEmails || [];
+  const humanContribs = userContributions.filter((contrib) => !aiEmails.some((aiEmail) => contrib.email === aiEmail));
+  const aiContribs = userContributions.filter((contrib) => aiEmails.some((aiEmail) => contrib.email === aiEmail));
+
+  const humanTotalAdditions = humanContribs.reduce((sum, contrib) => sum + contrib.additions, 0);
+  const humanTotalDeletions = humanContribs.reduce((sum, contrib) => sum + contrib.deletions, 0);
+  const humanTotalEditLines = humanTotalAdditions + humanTotalDeletions;
+  const humanPercentage = totalEditLines > 0 ? Math.round((humanTotalEditLines / totalEditLines) * 100) : 0;
+
+  const aiTotalAdditions = aiContribs.reduce((sum, contrib) => sum + contrib.additions, 0);
+  const aiTotalDeletions = aiContribs.reduce((sum, contrib) => sum + contrib.deletions, 0);
+  const aiTotalEditLines = aiTotalAdditions + aiTotalDeletions;
+  const aiPercentage = totalEditLines > 0 ? Math.round((aiTotalEditLines / totalEditLines) * 100) : 0;
+
+  return {
+    startDate,
+    endDate,
+    totalPRs: allPrNumbers.length,
+    prNumbers: allPrNumbers.sort((a, b) => a - b),
+    totalAdditions,
+    totalDeletions,
+    totalEditLines,
+    userContributions,
+    humanContributions: {
+      totalAdditions: humanTotalAdditions,
+      totalDeletions: humanTotalDeletions,
+      totalEditLines: humanTotalEditLines,
+      percentage: humanPercentage,
+      peopleCount: humanContribs.length,
+    },
+    aiContributions: {
+      totalAdditions: aiTotalAdditions,
+      totalDeletions: aiTotalDeletions,
+      totalEditLines: aiTotalEditLines,
+      percentage: aiPercentage,
+      peopleCount: aiContribs.length,
+    },
+  };
+}
+
 export async function analyzePullRequestsByDateRange(
   owner: string,
   repo: string,

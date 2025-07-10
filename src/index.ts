@@ -3,6 +3,7 @@ import { hideBin } from 'yargs/helpers';
 import {
   analyzePullRequest,
   analyzePullRequestsByDateRange,
+  analyzePullRequestsByDateRangeMultiRepo,
   formatAnalysisResult,
   formatDateRangeAnalysisResult,
 } from './analyzer.js';
@@ -10,16 +11,10 @@ import {
 async function main() {
   try {
     const argv = await yargs(hideBin(process.argv))
-      .option('owner', {
-        alias: 'o',
-        type: 'string',
-        description: 'GitHub repository owner',
-        demandOption: true,
-      })
       .option('repo', {
         alias: 'r',
-        type: 'string',
-        description: 'GitHub repository name',
+        type: 'array',
+        description: 'GitHub repository in format "owner/repo". Multiple repositories can be specified.',
         demandOption: true,
       })
       .option('pr-number', {
@@ -73,6 +68,21 @@ async function main() {
           throw new Error('Both --start-date and --end-date must be provided together');
         }
 
+        // Validate repository format
+        const repos = argv.repo as string[];
+        for (const repo of repos) {
+          if (!repo.includes('/') || repo.split('/').length !== 2) {
+            throw new Error(`Invalid repository format: "${repo}". Expected format: "owner/repo"`);
+          }
+        }
+
+        // For PR analysis, only one repository is allowed
+        if (hasPrNumber && repos.length > 1) {
+          throw new Error(
+            'PR analysis supports only one repository. For multiple repositories, use date range analysis.'
+          );
+        }
+
         // Validate date format
         if (argv['start-date'] && argv['end-date']) {
           const startDate = new Date(argv['start-date']);
@@ -95,30 +105,33 @@ async function main() {
       })
       .help()
       .alias('help', 'h')
-      .example('$0 --owner WillBooster --repo gen-pr --pr-number 65', 'Analyze PR #65 from WillBooster/gen-pr')
-      .example('$0 -o WillBooster -r gen-pr -p 65', 'Same as above using short options')
+      .example('$0 --repo WillBooster/gen-pr --pr-number 65', 'Analyze PR #65 from WillBooster/gen-pr')
+      .example('$0 -r WillBooster/gen-pr -p 65', 'Same as above using short options')
       .example(
-        '$0 --owner WillBooster --repo gen-pr --start-date 2024-01-01 --end-date 2024-01-31',
+        '$0 --repo WillBooster/gen-pr --start-date 2024-01-01 --end-date 2024-01-31',
         'Analyze all PRs in January 2024'
       )
-      .example('$0 -o WillBooster -r gen-pr -s 2024-01-01 -e 2024-01-31', 'Same as above using short options')
+      .example('$0 -r WillBooster/gen-pr -s 2024-01-01 -e 2024-01-31', 'Same as above using short options')
       .example(
-        '$0 -o WillBooster -r gen-pr -p 65 --exclude-files "*.md" "test/**" --exclude-users "bot"',
+        '$0 -r WillBooster/gen-pr -p 65 --exclude-files "*.md" "test/**" --exclude-users "bot"',
         'Analyze PR #65 excluding markdown files, test directory, and bot user'
       )
       .example(
-        '$0 -o WillBooster -r gen-pr -p 65 --exclude-emails "bot@example.com" --exclude-commit-messages "auto-generated"',
+        '$0 -r WillBooster/gen-pr -p 65 --exclude-emails "bot@example.com" --exclude-commit-messages "auto-generated"',
         'Analyze PR #65 excluding specific email and commits with "auto-generated" text'
       )
       .example(
-        '$0 -o WillBooster -r gen-pr -p 65 --ai-emails "bot@willbooster.com" "ai@example.com"',
+        '$0 -r WillBooster/gen-pr -p 65 --ai-emails "bot@willbooster.com" "ai@example.com"',
         'Analyze PR #65 with human vs AI breakdown, identifying specified emails as AI'
+      )
+      .example(
+        '$0 -r WillBooster/gen-pr WillBooster/calc-ai-contrib -s 2024-01-01 -e 2024-01-31',
+        'Analyze PRs from multiple repositories in January 2024'
       )
       .parse();
 
     const {
-      owner,
-      repo,
+      repo: repos,
       prNumber,
       startDate,
       endDate,
@@ -128,6 +141,12 @@ async function main() {
       excludeCommitMessages,
       aiEmails,
     } = argv;
+
+    // Parse repository specifications
+    const repositories = (repos as string[]).map((repoSpec) => {
+      const [owner, repo] = repoSpec.split('/');
+      return { owner, repo };
+    });
 
     // Build exclusion options
     const exclusionOptions = {
@@ -167,6 +186,7 @@ async function main() {
     }
 
     if (prNumber) {
+      const { owner, repo } = repositories[0]; // Only one repository for PR analysis
       console.log(`Analyzing PR #${prNumber} from ${owner}/${repo} using diff-based analysis...`);
       console.log('This method uses git blame to accurately attribute each line to its actual author.');
       console.log('Note: Set GH_TOKEN environment variable for higher rate limits.');
@@ -174,12 +194,28 @@ async function main() {
       const result = await analyzePullRequest(owner, repo, prNumber, exclusionOptions);
       console.log(`\n${formatAnalysisResult(result, exclusionOptions)}`);
     } else if (startDate && endDate) {
-      console.log(`Analyzing PRs from ${owner}/${repo} between ${startDate} and ${endDate}...`);
-      console.log('This method uses git blame to accurately attribute each line to its actual author.');
-      console.log('Note: Set GH_TOKEN environment variable for higher rate limits.');
+      if (repositories.length === 1) {
+        const { owner, repo } = repositories[0];
+        console.log(`Analyzing PRs from ${owner}/${repo} between ${startDate} and ${endDate}...`);
+        console.log('This method uses git blame to accurately attribute each line to its actual author.');
+        console.log('Note: Set GH_TOKEN environment variable for higher rate limits.');
 
-      const result = await analyzePullRequestsByDateRange(owner, repo, startDate, endDate, exclusionOptions);
-      console.log(`\n${formatDateRangeAnalysisResult(result, exclusionOptions)}`);
+        const result = await analyzePullRequestsByDateRange(owner, repo, startDate, endDate, exclusionOptions);
+        console.log(`\n${formatDateRangeAnalysisResult(result, exclusionOptions)}`);
+      } else {
+        // Multiple repositories - need to implement multi-repo analysis
+        console.log(`Analyzing PRs from ${repositories.length} repositories between ${startDate} and ${endDate}...`);
+        console.log('This method uses git blame to accurately attribute each line to its actual author.');
+        console.log('Note: Set GH_TOKEN environment variable for higher rate limits.');
+
+        const result = await analyzePullRequestsByDateRangeMultiRepo(
+          repositories,
+          startDate,
+          endDate,
+          exclusionOptions
+        );
+        console.log(`\n${formatDateRangeAnalysisResult(result, exclusionOptions)}`);
+      }
     }
   } catch (error) {
     console.error('Error analyzing PR:', error);
