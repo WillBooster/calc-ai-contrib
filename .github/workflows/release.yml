@@ -1,0 +1,14 @@
+name: Release
+on:
+  push:
+    branches:
+      - main
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+jobs:
+  release:
+    uses: WillBooster/reusable-workflows/.github/workflows/release.yml@main
+    secrets:
+      GH_TOKEN: ${{ secrets.PUBLIC_GH_BOT_PAT }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
