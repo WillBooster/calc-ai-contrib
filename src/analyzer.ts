@@ -634,11 +634,9 @@ function shouldExcludeUser(
   if (excludeUsers.includes(user)) {
     return true;
   }
-
   if (email && excludeEmails.includes(email)) {
     return true;
   }
-
   return false;
 }
 
