@@ -1,4 +1,3 @@
-// Helper function to format header for different result types
 import type { BaseAnalysisResult, DateRangeAnalysisResult, ExclusionOptions, PRAnalysisResult } from './types.js';
 
 export function formatAnalysisResult(
@@ -14,14 +13,6 @@ export function formatAnalysisResult(
   ];
 
   return lines.join('\n');
-}
-
-// Legacy function for backward compatibility - now just calls the unified function
-export function formatDateRangeAnalysisResult(
-  result: DateRangeAnalysisResult,
-  exclusionOptions: ExclusionOptions = {}
-): string {
-  return formatAnalysisResult(result, exclusionOptions);
 }
 
 function formatHeader(result: PRAnalysisResult | DateRangeAnalysisResult, hasAIEmails: boolean): string[] {
@@ -67,7 +58,6 @@ function formatHeader(result: PRAnalysisResult | DateRangeAnalysisResult, hasAIE
   return lines;
 }
 
-// Helper function to format detailed breakdown section
 function formatDetailedBreakdown(result: BaseAnalysisResult, hasAIEmails: boolean): string[] {
   const lines: string[] = [];
 
@@ -86,7 +76,6 @@ function formatDetailedBreakdown(result: BaseAnalysisResult, hasAIEmails: boolea
   return lines;
 }
 
-// Helper function to format individual contributions section
 function formatIndividualContributions(result: PRAnalysisResult | DateRangeAnalysisResult): string[] {
   const lines: string[] = [];
 

@@ -10,7 +10,7 @@
  * Run with: bun run test.ts
  */
 
-import { formatAnalysisResult, formatDateRangeAnalysisResult } from '../src/format.js';
+import { formatAnalysisResult } from '../src/format.js';
 import type { DateRangeAnalysisResult, ExclusionOptions, PRAnalysisResult, UserContribution } from '../src/types.js';
 
 // Helper function to create dummy user contributions
@@ -199,7 +199,7 @@ function runTests() {
   console.log('-'.repeat(50));
   const dateRangeResult1 = createDateRangeAnalysisResult(createMultipleUserContributions());
   const exclusionOptions3: ExclusionOptions = {};
-  const formatted3 = formatDateRangeAnalysisResult(dateRangeResult1, exclusionOptions3);
+  const formatted3 = formatAnalysisResult(dateRangeResult1, exclusionOptions3);
   console.log(formatted3);
 
   // Test 4: Date Range Analysis with AI emails
@@ -213,7 +213,7 @@ function runTests() {
     excludeFiles: ['*.md', 'test/**'],
     excludeUsers: ['bot-user'],
   };
-  const formatted4 = formatDateRangeAnalysisResult(dateRangeResult2, exclusionOptions4);
+  const formatted4 = formatAnalysisResult(dateRangeResult2, exclusionOptions4);
   console.log(formatted4);
 
   // Test 5: Empty contributions case
@@ -227,7 +227,7 @@ function runTests() {
   console.log('\n📋 TEST 6: Date Range with Empty Contributions');
   console.log('-'.repeat(50));
   const emptyDateRangeResult = createDateRangeAnalysisResult(createEmptyUserContributions());
-  const formatted6 = formatDateRangeAnalysisResult(emptyDateRangeResult, {});
+  const formatted6 = formatAnalysisResult(emptyDateRangeResult, {});
   console.log(formatted6);
 
   // Test 7: Legacy function compatibility test
@@ -237,7 +237,7 @@ function runTests() {
   const testDateRangeResult = createDateRangeAnalysisResult(createUserContributions(), ['bot@willbooster.com']);
   const testExclusionOptions: ExclusionOptions = { aiEmails: ['bot@willbooster.com'] };
 
-  const legacyFormatted = formatDateRangeAnalysisResult(testDateRangeResult, testExclusionOptions);
+  const legacyFormatted = formatAnalysisResult(testDateRangeResult, testExclusionOptions);
   const unifiedFormatted = formatAnalysisResult(testDateRangeResult, testExclusionOptions);
 
   const isIdentical = legacyFormatted === unifiedFormatted;
