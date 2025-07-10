@@ -1,15 +1,16 @@
 import { describe, expect, test } from 'bun:test';
-import { analyzePullRequest } from '../../src/analyzer.js';
+import { analyzePullRequestsByDateRangeMultiRepo } from '../../src/analyzer.js';
 
 describe('GitHub PR Analyzer', () => {
   test('analyze WillBooster/gen-pr PR #65 by diff (accurate per-line attribution)', async () => {
-    const owner = 'WillBooster';
-    const repo = 'gen-pr';
-    const prNumber = 65;
+    const repositories = [{ owner: 'WillBooster', repo: 'gen-pr' }];
+    const startDate = '2025-06-10';
+    const endDate = '2025-06-10';
 
-    const result = await analyzePullRequest(owner, repo, prNumber);
+    const result = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate);
 
-    expect(result.prNumber).toBe(65);
+    expect(result.totalPRs).toBe(1);
+    expect(result.prNumbers).toEqual([65]);
     expect(result.totalEditLines).toBe(290);
     expect(result.totalAdditions).toBe(203);
     expect(result.totalDeletions).toBe(87);
@@ -45,15 +46,11 @@ describe('GitHub PR Analyzer', () => {
   }, 60000);
 
   test('analyze PRs by date range (basic functionality)', async () => {
-    const owner = 'WillBooster';
-    const repo = 'gen-pr';
+    const repositories = [{ owner: 'WillBooster', repo: 'gen-pr' }];
     const startDate = '2025-06-01';
     const endDate = '2025-06-10';
 
-    // Import the function dynamically to avoid import issues
-    const { analyzePullRequestsByDateRange } = await import('../../src/analyzer.js');
-
-    const result = await analyzePullRequestsByDateRange(owner, repo, startDate, endDate);
+    const result = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate);
 
     expect(result.startDate).toBe(startDate);
     expect(result.endDate).toBe(endDate);
@@ -95,16 +92,17 @@ describe('GitHub PR Analyzer', () => {
   }, 120000);
 
   test('analyze PR with exclusion options', async () => {
-    const owner = 'WillBooster';
-    const repo = 'gen-pr';
-    const prNumber = 65;
+    const repositories = [{ owner: 'WillBooster', repo: 'gen-pr' }];
+    const startDate = '2025-06-10';
+    const endDate = '2025-06-10';
 
     // Test excluding a user
-    const resultWithUserExclusion = await analyzePullRequest(owner, repo, prNumber, {
+    const resultWithUserExclusion = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate, {
       excludeUsers: ['WillBooster-bot'],
     });
 
-    expect(resultWithUserExclusion.prNumber).toBe(65);
+    expect(resultWithUserExclusion.totalPRs).toBe(1);
+    expect(resultWithUserExclusion.prNumbers).toEqual([65]);
     expect(resultWithUserExclusion.totalAdditions).toBe(106);
     expect(resultWithUserExclusion.totalDeletions).toBe(47);
     expect(resultWithUserExclusion.totalEditLines).toBe(153);
@@ -118,11 +116,12 @@ describe('GitHub PR Analyzer', () => {
     expect(resultWithUserExclusion.userContributions[0].email).toBe('exkazuu@gmail.com');
 
     // Test excluding files with glob pattern
-    const resultWithFileExclusion = await analyzePullRequest(owner, repo, prNumber, {
+    const resultWithFileExclusion = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate, {
       excludeFiles: ['*.md', 'package*.json'],
     });
 
-    expect(resultWithFileExclusion.prNumber).toBe(65);
+    expect(resultWithFileExclusion.totalPRs).toBe(1);
+    expect(resultWithFileExclusion.prNumbers).toEqual([65]);
     expect(resultWithFileExclusion.totalAdditions).toBe(201);
     expect(resultWithFileExclusion.totalDeletions).toBe(87);
     expect(resultWithFileExclusion.totalEditLines).toBe(288);
@@ -145,12 +144,18 @@ describe('GitHub PR Analyzer', () => {
     expect(botContribFileExcl?.percentage).toBe(47);
 
     // Test multiple exclusions
-    const resultWithMultipleExclusions = await analyzePullRequest(owner, repo, prNumber, {
-      excludeUsers: ['WillBooster-bot'],
-      excludeFiles: ['*.md'],
-    });
+    const resultWithMultipleExclusions = await analyzePullRequestsByDateRangeMultiRepo(
+      repositories,
+      startDate,
+      endDate,
+      {
+        excludeUsers: ['WillBooster-bot'],
+        excludeFiles: ['*.md'],
+      }
+    );
 
-    expect(resultWithMultipleExclusions.prNumber).toBe(65);
+    expect(resultWithMultipleExclusions.totalPRs).toBe(1);
+    expect(resultWithMultipleExclusions.prNumbers).toEqual([65]);
     expect(resultWithMultipleExclusions.totalAdditions).toBe(105);
     expect(resultWithMultipleExclusions.totalDeletions).toBe(47);
     expect(resultWithMultipleExclusions.totalEditLines).toBe(152);
@@ -164,11 +169,12 @@ describe('GitHub PR Analyzer', () => {
     expect(resultWithMultipleExclusions.userContributions[0].email).toBe('exkazuu@gmail.com');
 
     // Test excluding by email
-    const resultWithEmailExclusion = await analyzePullRequest(owner, repo, prNumber, {
+    const resultWithEmailExclusion = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate, {
       excludeEmails: ['bot@willbooster.com'],
     });
 
-    expect(resultWithEmailExclusion.prNumber).toBe(65);
+    expect(resultWithEmailExclusion.totalPRs).toBe(1);
+    expect(resultWithEmailExclusion.prNumbers).toEqual([65]);
     expect(resultWithEmailExclusion.totalAdditions).toBe(106);
     expect(resultWithEmailExclusion.totalDeletions).toBe(47);
     expect(resultWithEmailExclusion.totalEditLines).toBe(153);
@@ -178,16 +184,17 @@ describe('GitHub PR Analyzer', () => {
   }, 60000);
 
   test('analyze PR with AI emails for human vs AI breakdown', async () => {
-    const owner = 'WillBooster';
-    const repo = 'gen-pr';
-    const prNumber = 65;
+    const repositories = [{ owner: 'WillBooster', repo: 'gen-pr' }];
+    const startDate = '2025-06-10';
+    const endDate = '2025-06-10';
 
     // Test with AI email specified
-    const resultWithAI = await analyzePullRequest(owner, repo, prNumber, {
+    const resultWithAI = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate, {
       aiEmails: ['bot@willbooster.com'],
     });
 
-    expect(resultWithAI.prNumber).toBe(65);
+    expect(resultWithAI.totalPRs).toBe(1);
+    expect(resultWithAI.prNumbers).toEqual([65]);
     expect(resultWithAI.totalAdditions).toBe(203);
     expect(resultWithAI.totalDeletions).toBe(87);
     expect(resultWithAI.totalEditLines).toBe(290);
@@ -211,7 +218,7 @@ describe('GitHub PR Analyzer', () => {
     expect(resultWithAI.humanContributions.percentage + resultWithAI.aiContributions.percentage).toBe(100);
 
     // Test with no AI emails specified (should have zero AI contributions)
-    const resultWithoutAI = await analyzePullRequest(owner, repo, prNumber);
+    const resultWithoutAI = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate);
 
     expect(resultWithoutAI.humanContributions.totalEditLines).toBe(290);
     expect(resultWithoutAI.humanContributions.percentage).toBe(100);
@@ -223,16 +230,12 @@ describe('GitHub PR Analyzer', () => {
   }, 60000);
 
   test('analyze date range with AI emails for human vs AI breakdown', async () => {
-    const owner = 'WillBooster';
-    const repo = 'gen-pr';
+    const repositories = [{ owner: 'WillBooster', repo: 'gen-pr' }];
     const startDate = '2025-06-01';
     const endDate = '2025-06-10';
 
-    // Import the function dynamically to avoid import issues
-    const { analyzePullRequestsByDateRange } = await import('../../src/analyzer.js');
-
     // Test with AI email specified
-    const resultWithAI = await analyzePullRequestsByDateRange(owner, repo, startDate, endDate, {
+    const resultWithAI = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate, {
       aiEmails: ['bot@willbooster.com'],
     });
 
