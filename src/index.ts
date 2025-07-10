@@ -53,6 +53,10 @@ async function main() {
         type: 'array',
         description: 'Text patterns to exclude commits containing these strings',
       })
+      .option('ai-emails', {
+        type: 'array',
+        description: 'Email addresses to identify as AI contributors for human vs AI breakdown',
+      })
       .check((argv) => {
         const hasPrNumber = argv['pr-number'] !== undefined;
         const hasDateRange = argv['start-date'] !== undefined && argv['end-date'] !== undefined;
@@ -106,6 +110,10 @@ async function main() {
         '$0 -o WillBooster -r gen-pr -p 65 --exclude-emails "bot@example.com" --exclude-commit-messages "auto-generated"',
         'Analyze PR #65 excluding specific email and commits with "auto-generated" text'
       )
+      .example(
+        '$0 -o WillBooster -r gen-pr -p 65 --ai-emails "bot@willbooster.com" "ai@example.com"',
+        'Analyze PR #65 with human vs AI breakdown, identifying specified emails as AI'
+      )
       .parse();
 
     const {
@@ -118,6 +126,7 @@ async function main() {
       excludeUsers,
       excludeEmails,
       excludeCommitMessages,
+      aiEmails,
     } = argv;
 
     // Build exclusion options
@@ -126,6 +135,7 @@ async function main() {
       excludeUsers: excludeUsers as string[] | undefined,
       excludeEmails: excludeEmails as string[] | undefined,
       excludeCommitMessages: excludeCommitMessages as string[] | undefined,
+      aiEmails: aiEmails as string[] | undefined,
     };
 
     // Log exclusion options if any are provided
@@ -133,21 +143,25 @@ async function main() {
       exclusionOptions.excludeFiles?.length ||
       exclusionOptions.excludeUsers?.length ||
       exclusionOptions.excludeEmails?.length ||
-      exclusionOptions.excludeCommitMessages?.length;
+      exclusionOptions.excludeCommitMessages?.length ||
+      exclusionOptions.aiEmails?.length;
 
     if (hasExclusions) {
-      console.log('\nExclusion options:');
+      console.log('\nOptions:');
       if (exclusionOptions.excludeFiles?.length) {
-        console.log(`  Files: ${exclusionOptions.excludeFiles.join(', ')}`);
+        console.log(`  Exclude files: ${exclusionOptions.excludeFiles.join(', ')}`);
       }
       if (exclusionOptions.excludeUsers?.length) {
-        console.log(`  Users: ${exclusionOptions.excludeUsers.join(', ')}`);
+        console.log(`  Exclude users: ${exclusionOptions.excludeUsers.join(', ')}`);
       }
       if (exclusionOptions.excludeEmails?.length) {
-        console.log(`  Emails: ${exclusionOptions.excludeEmails.join(', ')}`);
+        console.log(`  Exclude emails: ${exclusionOptions.excludeEmails.join(', ')}`);
       }
       if (exclusionOptions.excludeCommitMessages?.length) {
-        console.log(`  Commit messages containing: ${exclusionOptions.excludeCommitMessages.join(', ')}`);
+        console.log(`  Exclude commit messages containing: ${exclusionOptions.excludeCommitMessages.join(', ')}`);
+      }
+      if (exclusionOptions.aiEmails?.length) {
+        console.log(`  AI emails: ${exclusionOptions.aiEmails.join(', ')}`);
       }
       console.log('');
     }
@@ -158,14 +172,14 @@ async function main() {
       console.log('Note: Set GH_TOKEN environment variable for higher rate limits.');
 
       const result = await analyzePullRequest(owner, repo, prNumber, exclusionOptions);
-      console.log(`\n${formatAnalysisResult(result)}`);
+      console.log(`\n${formatAnalysisResult(result, exclusionOptions)}`);
     } else if (startDate && endDate) {
       console.log(`Analyzing PRs from ${owner}/${repo} between ${startDate} and ${endDate}...`);
       console.log('This method uses git blame to accurately attribute each line to its actual author.');
       console.log('Note: Set GH_TOKEN environment variable for higher rate limits.');
 
       const result = await analyzePullRequestsByDateRange(owner, repo, startDate, endDate, exclusionOptions);
-      console.log(`\n${formatDateRangeAnalysisResult(result)}`);
+      console.log(`\n${formatDateRangeAnalysisResult(result, exclusionOptions)}`);
     }
   } catch (error) {
     console.error('Error analyzing PR:', error);

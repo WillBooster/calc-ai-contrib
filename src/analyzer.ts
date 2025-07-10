@@ -7,6 +7,14 @@ interface ExclusionOptions {
   excludeUsers?: string[];
   excludeEmails?: string[];
   excludeCommitMessages?: string[];
+  aiEmails?: string[];
+}
+
+interface UserStats {
+  additions: number;
+  deletions: number;
+  name?: string;
+  email?: string;
 }
 
 interface UserContribution {
@@ -19,23 +27,32 @@ interface UserContribution {
   percentage: number;
 }
 
-interface PRAnalysisResult {
-  prNumber: number;
+interface ContributionStats {
+  totalAdditions: number;
+  totalDeletions: number;
+  totalEditLines: number;
+  percentage: number;
+  peopleCount: number;
+}
+
+interface BaseAnalysisResult {
   totalAdditions: number;
   totalDeletions: number;
   totalEditLines: number;
   userContributions: UserContribution[];
+  humanContributions: ContributionStats;
+  aiContributions: ContributionStats;
 }
 
-interface DateRangeAnalysisResult {
+interface PRAnalysisResult extends BaseAnalysisResult {
+  prNumber: number;
+}
+
+interface DateRangeAnalysisResult extends BaseAnalysisResult {
   startDate: string;
   endDate: string;
   totalPRs: number;
   prNumbers: number[];
-  totalAdditions: number;
-  totalDeletions: number;
-  totalEditLines: number;
-  userContributions: UserContribution[];
 }
 
 config();
@@ -65,7 +82,7 @@ export async function analyzePullRequest(
 
   let _totalAdditions = 0;
   let _totalDeletions = 0;
-  const userStats = new Map<string, { additions: number; deletions: number; name?: string; email?: string }>();
+  const userStats = new Map<string, UserStats>();
 
   console.log(`Analyzing ${files.length} changed files...`);
 
@@ -157,25 +174,72 @@ export async function analyzePullRequest(
   const actualTotalAdditions = userContributions.reduce((sum, contrib) => sum + contrib.additions, 0);
   const actualTotalDeletions = userContributions.reduce((sum, contrib) => sum + contrib.deletions, 0);
 
+  // Calculate AI vs Human contributions
+  const aiContribs = userContributions.filter((contrib) => isAIUser(contrib.email, exclusionOptions.aiEmails));
+  const humanContribs = userContributions.filter((contrib) => !isAIUser(contrib.email, exclusionOptions.aiEmails));
+
+  const aiTotalAdditions = aiContribs.reduce((sum, contrib) => sum + contrib.additions, 0);
+  const aiTotalDeletions = aiContribs.reduce((sum, contrib) => sum + contrib.deletions, 0);
+  const aiTotalEditLines = aiTotalAdditions + aiTotalDeletions;
+
+  const humanTotalAdditions = humanContribs.reduce((sum, contrib) => sum + contrib.additions, 0);
+  const humanTotalDeletions = humanContribs.reduce((sum, contrib) => sum + contrib.deletions, 0);
+  const humanTotalEditLines = humanTotalAdditions + humanTotalDeletions;
+
+  const aiPercentage = actualTotalEditLines > 0 ? Math.round((aiTotalEditLines / actualTotalEditLines) * 100) : 0;
+  const humanPercentage = actualTotalEditLines > 0 ? Math.round((humanTotalEditLines / actualTotalEditLines) * 100) : 0;
+
   return {
     prNumber,
     totalAdditions: actualTotalAdditions,
     totalDeletions: actualTotalDeletions,
     totalEditLines: actualTotalEditLines,
     userContributions,
+    humanContributions: {
+      totalAdditions: humanTotalAdditions,
+      totalDeletions: humanTotalDeletions,
+      totalEditLines: humanTotalEditLines,
+      percentage: humanPercentage,
+      peopleCount: humanContribs.length,
+    },
+    aiContributions: {
+      totalAdditions: aiTotalAdditions,
+      totalDeletions: aiTotalDeletions,
+      totalEditLines: aiTotalEditLines,
+      percentage: aiPercentage,
+      peopleCount: aiContribs.length,
+    },
   };
 }
 
 // Keep the old commit-based function for comparison
-export function formatAnalysisResult(result: PRAnalysisResult): string {
+export function formatAnalysisResult(result: PRAnalysisResult, exclusionOptions: ExclusionOptions = {}): string {
   const lines = [
     `PR #${result.prNumber} Analysis:`,
     `Total additions: ${result.totalAdditions}`,
     `Total deletions: ${result.totalDeletions}`,
     `Total edit lines: ${result.totalEditLines}`,
     '',
-    'User contributions:',
   ];
+
+  // Add AI vs Human breakdown only if AI emails were specified
+  const hasAIEmails = exclusionOptions.aiEmails && exclusionOptions.aiEmails.length > 0;
+  if (hasAIEmails) {
+    lines.push('Human vs AI Breakdown:');
+    lines.push(
+      `Human: ${result.humanContributions.percentage}% ` +
+        `(+${result.humanContributions.totalAdditions}, -${result.humanContributions.totalDeletions}, ` +
+        `total: ${result.humanContributions.totalEditLines}, people: ${result.humanContributions.peopleCount})`
+    );
+    lines.push(
+      `AI: ${result.aiContributions.percentage}% ` +
+        `(+${result.aiContributions.totalAdditions}, -${result.aiContributions.totalDeletions}, ` +
+        `total: ${result.aiContributions.totalEditLines}, people: ${result.aiContributions.peopleCount})`
+    );
+    lines.push('');
+  }
+
+  lines.push('User contributions:');
 
   for (const contribution of result.userContributions) {
     const userInfo = contribution.user;
@@ -192,7 +256,10 @@ export function formatAnalysisResult(result: PRAnalysisResult): string {
   return lines.join('\n');
 }
 
-export function formatDateRangeAnalysisResult(result: DateRangeAnalysisResult): string {
+export function formatDateRangeAnalysisResult(
+  result: DateRangeAnalysisResult,
+  exclusionOptions: ExclusionOptions = {}
+): string {
   const lines = [
     `Date Range Analysis (${result.startDate} to ${result.endDate}):`,
     `Total PRs analyzed: ${result.totalPRs}`,
@@ -201,8 +268,26 @@ export function formatDateRangeAnalysisResult(result: DateRangeAnalysisResult): 
     `Total deletions: ${result.totalDeletions}`,
     `Total edit lines: ${result.totalEditLines}`,
     '',
-    'Aggregated user contributions:',
   ];
+
+  // Add AI vs Human breakdown only if AI emails were specified
+  const hasAIEmails = exclusionOptions.aiEmails && exclusionOptions.aiEmails.length > 0;
+  if (hasAIEmails) {
+    lines.push('Human vs AI Breakdown:');
+    lines.push(
+      `Human: ${result.humanContributions.percentage}% ` +
+        `(+${result.humanContributions.totalAdditions}, -${result.humanContributions.totalDeletions}, ` +
+        `total: ${result.humanContributions.totalEditLines}, people: ${result.humanContributions.peopleCount})`
+    );
+    lines.push(
+      `AI: ${result.aiContributions.percentage}% ` +
+        `(+${result.aiContributions.totalAdditions}, -${result.aiContributions.totalDeletions}, ` +
+        `total: ${result.aiContributions.totalEditLines}, people: ${result.aiContributions.peopleCount})`
+    );
+    lines.push('');
+  }
+
+  lines.push('Aggregated user contributions:');
 
   if (result.userContributions.length === 0) {
     lines.push('No contributions found in the specified date range.');
@@ -240,8 +325,8 @@ async function getPRCommits(owner: string, repo: string, prNumber: number): Prom
 function distributeFileContributions(
   commits: GitHubCommit[],
   file: { filename: string; additions: number; deletions: number }
-): Map<string, { additions: number; deletions: number; name?: string; email?: string }> {
-  const contributions = new Map<string, { additions: number; deletions: number; name?: string; email?: string }>();
+): Map<string, UserStats> {
+  const contributions = new Map<string, UserStats>();
 
   if (commits.length === 0) {
     // Fallback: attribute to unknown
@@ -251,7 +336,7 @@ function distributeFileContributions(
 
   // Simple distribution: divide changes equally among all commit authors
   // This is a simplified approach that avoids excessive API calls
-  const authorsMap = new Map<string, { name?: string; email?: string }>();
+  const authorsMap = new Map<string, Pick<UserStats, 'name' | 'email'>>();
 
   for (const commit of commits) {
     const author = commit.author?.login || commit.commit?.author?.name || 'Unknown';
@@ -372,6 +457,20 @@ export async function analyzePullRequestsByDateRange(
       totalDeletions: 0,
       totalEditLines: 0,
       userContributions: [],
+      humanContributions: {
+        totalAdditions: 0,
+        totalDeletions: 0,
+        totalEditLines: 0,
+        percentage: 0,
+        peopleCount: 0,
+      },
+      aiContributions: {
+        totalAdditions: 0,
+        totalDeletions: 0,
+        totalEditLines: 0,
+        percentage: 0,
+        peopleCount: 0,
+      },
     };
   }
 
@@ -379,10 +478,7 @@ export async function analyzePullRequestsByDateRange(
 
   let totalAdditions = 0;
   let totalDeletions = 0;
-  const aggregatedUserStats = new Map<
-    string,
-    { additions: number; deletions: number; name?: string; email?: string }
-  >();
+  const aggregatedUserStats = new Map<string, UserStats>();
 
   for (let i = 0; i < prNumbers.length; i++) {
     const prNumber = prNumbers[i];
@@ -445,6 +541,21 @@ export async function analyzePullRequestsByDateRange(
 
   userContributions.sort((a, b) => b.totalLines - a.totalLines);
 
+  // Calculate AI vs Human contributions
+  const aiContribs = userContributions.filter((contrib) => isAIUser(contrib.email, exclusionOptions.aiEmails));
+  const humanContribs = userContributions.filter((contrib) => !isAIUser(contrib.email, exclusionOptions.aiEmails));
+
+  const aiTotalAdditions = aiContribs.reduce((sum, contrib) => sum + contrib.additions, 0);
+  const aiTotalDeletions = aiContribs.reduce((sum, contrib) => sum + contrib.deletions, 0);
+  const aiTotalEditLines = aiTotalAdditions + aiTotalDeletions;
+
+  const humanTotalAdditions = humanContribs.reduce((sum, contrib) => sum + contrib.additions, 0);
+  const humanTotalDeletions = humanContribs.reduce((sum, contrib) => sum + contrib.deletions, 0);
+  const humanTotalEditLines = humanTotalAdditions + humanTotalDeletions;
+
+  const aiPercentage = totalEditLines > 0 ? Math.round((aiTotalEditLines / totalEditLines) * 100) : 0;
+  const humanPercentage = totalEditLines > 0 ? Math.round((humanTotalEditLines / totalEditLines) * 100) : 0;
+
   return {
     startDate,
     endDate,
@@ -454,6 +565,20 @@ export async function analyzePullRequestsByDateRange(
     totalDeletions,
     totalEditLines,
     userContributions,
+    humanContributions: {
+      totalAdditions: humanTotalAdditions,
+      totalDeletions: humanTotalDeletions,
+      totalEditLines: humanTotalEditLines,
+      percentage: humanPercentage,
+      peopleCount: humanContribs.length,
+    },
+    aiContributions: {
+      totalAdditions: aiTotalAdditions,
+      totalDeletions: aiTotalDeletions,
+      totalEditLines: aiTotalEditLines,
+      percentage: aiPercentage,
+      peopleCount: aiContribs.length,
+    },
   };
 }
 
@@ -485,4 +610,11 @@ function shouldExcludeUser(
 
 function shouldExcludeCommit(commitMessage: string, excludePatterns: string[] = []): boolean {
   return excludePatterns.some((pattern) => commitMessage.includes(pattern));
+}
+
+function isAIUser(email: string | undefined, aiEmails: string[] = []): boolean {
+  if (!email) {
+    return false;
+  }
+  return aiEmails.includes(email);
 }

@@ -176,4 +176,84 @@ describe('GitHub PR Analyzer', () => {
     expect(resultWithEmailExclusion.userContributions[0].user).toBe('exKAZUu');
     expect(resultWithEmailExclusion.userContributions[0].percentage).toBe(100);
   }, 60000);
+
+  test('analyze PR with AI emails for human vs AI breakdown', async () => {
+    const owner = 'WillBooster';
+    const repo = 'gen-pr';
+    const prNumber = 65;
+
+    // Test with AI email specified
+    const resultWithAI = await analyzePullRequest(owner, repo, prNumber, {
+      aiEmails: ['bot@willbooster.com'],
+    });
+
+    expect(resultWithAI.prNumber).toBe(65);
+    expect(resultWithAI.totalAdditions).toBe(203);
+    expect(resultWithAI.totalDeletions).toBe(87);
+    expect(resultWithAI.totalEditLines).toBe(290);
+    expect(resultWithAI.userContributions.length).toBe(2);
+
+    // Check human contributions
+    expect(resultWithAI.humanContributions.totalAdditions).toBe(106);
+    expect(resultWithAI.humanContributions.totalDeletions).toBe(47);
+    expect(resultWithAI.humanContributions.totalEditLines).toBe(153);
+    expect(resultWithAI.humanContributions.percentage).toBe(53);
+    expect(resultWithAI.humanContributions.peopleCount).toBe(1);
+
+    // Check AI contributions
+    expect(resultWithAI.aiContributions.totalAdditions).toBe(97);
+    expect(resultWithAI.aiContributions.totalDeletions).toBe(40);
+    expect(resultWithAI.aiContributions.totalEditLines).toBe(137);
+    expect(resultWithAI.aiContributions.percentage).toBe(47);
+    expect(resultWithAI.aiContributions.peopleCount).toBe(1);
+
+    // Verify percentages add up to 100
+    expect(resultWithAI.humanContributions.percentage + resultWithAI.aiContributions.percentage).toBe(100);
+
+    // Test with no AI emails specified (should have zero AI contributions)
+    const resultWithoutAI = await analyzePullRequest(owner, repo, prNumber);
+
+    expect(resultWithoutAI.humanContributions.totalEditLines).toBe(290);
+    expect(resultWithoutAI.humanContributions.percentage).toBe(100);
+    expect(resultWithoutAI.humanContributions.peopleCount).toBe(2);
+
+    expect(resultWithoutAI.aiContributions.totalEditLines).toBe(0);
+    expect(resultWithoutAI.aiContributions.percentage).toBe(0);
+    expect(resultWithoutAI.aiContributions.peopleCount).toBe(0);
+  }, 60000);
+
+  test('analyze date range with AI emails for human vs AI breakdown', async () => {
+    const owner = 'WillBooster';
+    const repo = 'gen-pr';
+    const startDate = '2025-06-01';
+    const endDate = '2025-06-10';
+
+    // Import the function dynamically to avoid import issues
+    const { analyzePullRequestsByDateRange } = await import('../../src/analyzer.js');
+
+    // Test with AI email specified
+    const resultWithAI = await analyzePullRequestsByDateRange(owner, repo, startDate, endDate, {
+      aiEmails: ['bot@willbooster.com'],
+    });
+
+    expect(resultWithAI.totalEditLines).toBe(1873);
+    expect(resultWithAI.userContributions.length).toBe(3);
+
+    // Check human contributions (should include exKAZUu and renovate[bot])
+    expect(resultWithAI.humanContributions.totalAdditions).toBe(819);
+    expect(resultWithAI.humanContributions.totalDeletions).toBe(441);
+    expect(resultWithAI.humanContributions.totalEditLines).toBe(1260);
+    expect(resultWithAI.humanContributions.percentage).toBe(67);
+    expect(resultWithAI.humanContributions.peopleCount).toBe(2);
+
+    // Check AI contributions (should include WillBooster-bot)
+    expect(resultWithAI.aiContributions.totalAdditions).toBe(430);
+    expect(resultWithAI.aiContributions.totalDeletions).toBe(183);
+    expect(resultWithAI.aiContributions.totalEditLines).toBe(613);
+    expect(resultWithAI.aiContributions.percentage).toBe(33);
+    expect(resultWithAI.aiContributions.peopleCount).toBe(1);
+
+    // Verify percentages add up to 100
+    expect(resultWithAI.humanContributions.percentage + resultWithAI.aiContributions.percentage).toBe(100);
+  }, 120000);
 });
