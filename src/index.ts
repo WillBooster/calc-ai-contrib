@@ -43,6 +43,12 @@ async function main() {
         type: 'array',
         description: 'Email addresses to identify as AI contributors for human vs AI breakdown',
       })
+      .option('verbose', {
+        alias: 'v',
+        type: 'boolean',
+        description: 'Enable verbose logging (shows detailed progress information)',
+        default: false,
+      })
       .check((argv) => {
         // Validate repository format
         const repos = argv.repo as string[];
@@ -104,6 +110,7 @@ async function main() {
       excludeEmails,
       excludeCommitMessages,
       aiEmails,
+      verbose,
     } = argv;
 
     // Parse repository specifications
@@ -153,7 +160,13 @@ async function main() {
     console.log('This method uses git blame to accurately attribute each line to its actual author.');
     console.log('Note: Set GH_TOKEN environment variable for higher rate limits.');
 
-    const result = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate, exclusionOptions);
+    const result = await analyzePullRequestsByDateRangeMultiRepo(
+      repositories,
+      startDate,
+      endDate,
+      exclusionOptions,
+      verbose
+    );
     console.log(`\n${formatDateRangeAnalysisResult(result, exclusionOptions)}`);
   } catch (error) {
     console.error('Error analyzing PR:', error);

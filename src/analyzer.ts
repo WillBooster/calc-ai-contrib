@@ -1,6 +1,7 @@
 import { config } from 'dotenv';
 import micromatch from 'micromatch';
 import { Octokit } from 'octokit';
+import { Logger } from './logger.js';
 
 interface ExclusionOptions {
   excludeFiles?: string[];
@@ -148,8 +149,8 @@ export function formatDateRangeAnalysisResult(
   return lines.join('\n');
 }
 
-async function getPRCommits(owner: string, repo: string, prNumber: number): Promise<GitHubCommit[]> {
-  console.log('Making single API call to get PR commits...');
+async function getPRCommits(owner: string, repo: string, prNumber: number, logger: Logger): Promise<GitHubCommit[]> {
+  logger.log('Making single API call to get PR commits...');
   const commitsResponse = await octokit.rest.pulls.listCommits({
     owner,
     repo,
@@ -157,7 +158,7 @@ async function getPRCommits(owner: string, repo: string, prNumber: number): Prom
   });
 
   const commits = commitsResponse.data;
-  console.log(`Retrieved ${commits.length} commits from API`);
+  logger.log(`Retrieved ${commits.length} commits from API`);
 
   return commits;
 }
@@ -208,15 +209,21 @@ function distributeFileContributions(
   return contributions;
 }
 
-async function findPRsByDateRange(owner: string, repo: string, startDate: string, endDate: string): Promise<number[]> {
-  console.log(`Searching for PRs between ${startDate} and ${endDate}...`);
+async function findPRsByDateRange(
+  owner: string,
+  repo: string,
+  startDate: string,
+  endDate: string,
+  logger: Logger
+): Promise<number[]> {
+  logger.log(`Searching for PRs between ${startDate} and ${endDate}...`);
 
   const prNumbers: number[] = [];
   let page = 1;
   const perPage = 100;
 
   while (true) {
-    console.log(`Fetching PRs page ${page}...`);
+    logger.log(`Fetching PRs page ${page}...`);
 
     const response = await octokit.rest.pulls.list({
       owner,
@@ -249,7 +256,7 @@ async function findPRsByDateRange(owner: string, repo: string, startDate: string
 
       if (mergedDate >= start && mergedDate <= end) {
         prNumbers.push(pr.number);
-        console.log(`Found PR #${pr.number} merged on ${pr.merged_at}`);
+        logger.log(`Found PR #${pr.number} merged on ${pr.merged_at}`);
       } else if (mergedDate < start) {
         foundOlderPR = true;
         break;
@@ -263,7 +270,7 @@ async function findPRsByDateRange(owner: string, repo: string, startDate: string
     page++;
   }
 
-  console.log(`Found ${prNumbers.length} PRs in the specified date range`);
+  logger.log(`Found ${prNumbers.length} PRs in the specified date range`);
   return prNumbers.sort((a, b) => a - b);
 }
 
@@ -276,9 +283,11 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
   repositories: Repository[],
   startDate: string,
   endDate: string,
-  exclusionOptions: ExclusionOptions = {}
+  exclusionOptions: ExclusionOptions = {},
+  verbose: boolean = false
 ): Promise<DateRangeAnalysisResult> {
-  console.log(`Analyzing ${repositories.length} repositories...`);
+  const logger = new Logger(verbose);
+  logger.info(`Analyzing ${repositories.length} repositories...`);
 
   let totalAdditions = 0;
   let totalDeletions = 0;
@@ -286,26 +295,26 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
   const allPrNumbers: number[] = [];
 
   for (const { owner, repo } of repositories) {
-    console.log(`\nProcessing repository: ${owner}/${repo}`);
+    logger.info(`\nProcessing repository: ${owner}/${repo}`);
 
     try {
       // Find PRs in date range for this repository
-      const prNumbers = await findPRsByDateRange(owner, repo, startDate, endDate);
+      const prNumbers = await findPRsByDateRange(owner, repo, startDate, endDate, logger);
 
       if (prNumbers.length === 0) {
-        console.log(`No PRs found in the specified date range for ${owner}/${repo}`);
+        logger.info(`No PRs found in the specified date range for ${owner}/${repo}`);
         continue;
       }
 
-      console.log(`Found ${prNumbers.length} PRs in the specified date range`);
+      logger.info(`Found ${prNumbers.length} PRs in the specified date range`);
       allPrNumbers.push(...prNumbers);
 
-      console.log(`Analyzing ${prNumbers.length} PRs...`);
+      logger.log(`Analyzing ${prNumbers.length} PRs...`);
 
       // Analyze each PR directly
       for (let i = 0; i < prNumbers.length; i++) {
         const prNumber = prNumbers[i];
-        console.log(`\n[${i + 1}/${prNumbers.length}] Analyzing PR #${prNumber}...`);
+        logger.log(`\n[${i + 1}/${prNumbers.length}] Analyzing PR #${prNumber}...`);
 
         try {
           // Get PR files
@@ -316,12 +325,12 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
           });
 
           const files = filesResponse.data;
-          console.log(`Analyzing ${files.length} changed files...`);
+          logger.log(`Analyzing ${files.length} changed files...`);
 
           // Get PR commits
-          console.log('Fetching PR commits...');
-          const allCommits = await getPRCommits(owner, repo, prNumber);
-          console.log(`Found ${allCommits.length} commits in PR`);
+          logger.log('Fetching PR commits...');
+          const allCommits = await getPRCommits(owner, repo, prNumber, logger);
+          logger.log(`Found ${allCommits.length} commits in PR`);
 
           // Filter commits by exclusion criteria
           const filteredCommits = allCommits.filter((commit) => {
@@ -330,7 +339,7 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
           });
 
           if (filteredCommits.length !== allCommits.length) {
-            console.log(
+            logger.log(
               `Filtered out ${allCommits.length - filteredCommits.length} commits based on exclusion criteria`
             );
           }
@@ -341,12 +350,12 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
           });
 
           if (filteredFiles.length !== files.length) {
-            console.log(`Filtered out ${files.length - filteredFiles.length} files based on exclusion criteria`);
+            logger.log(`Filtered out ${files.length - filteredFiles.length} files based on exclusion criteria`);
           }
 
           // Process each file
           for (const file of filteredFiles) {
-            console.log(`Processing file: ${file.filename} (+${file.additions}/-${file.deletions})`);
+            logger.log(`Processing file: ${file.filename} (+${file.additions}/-${file.deletions})`);
 
             const fileContributors = distributeFileContributions(filteredCommits, file);
             let fileAdditionsIncluded = 0;
@@ -354,7 +363,7 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
 
             for (const [author, stats] of fileContributors) {
               if (shouldExcludeUser(author, stats.name, stats.email, exclusionOptions)) {
-                console.log(`Excluding user: ${author} (${stats.name || 'no name'}) <${stats.email || 'no email'}>`);
+                logger.log(`Excluding user: ${author} (${stats.name || 'no name'}) <${stats.email || 'no email'}>`);
                 continue;
               }
 
@@ -383,11 +392,11 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
             totalDeletions += fileDeletionsIncluded;
           }
         } catch (error) {
-          console.error(`Error analyzing PR #${prNumber}:`, error);
+          logger.error(`Error analyzing PR #${prNumber}:`, error);
         }
       }
     } catch (error) {
-      console.error(`Error analyzing repository ${owner}/${repo}:`, error);
+      logger.error(`Error analyzing repository ${owner}/${repo}:`, error);
       // Continue with other repositories
     }
   }
