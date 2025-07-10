@@ -47,8 +47,8 @@ describe('GitHub PR Analyzer', () => {
   test('analyze PRs by date range (basic functionality)', async () => {
     const owner = 'WillBooster';
     const repo = 'gen-pr';
-    const startDate = '2024-01-01';
-    const endDate = '2024-12-31';
+    const startDate = '2025-06-01';
+    const endDate = '2025-06-10';
 
     // Import the function dynamically to avoid import issues
     const { analyzePullRequestsByDateRange } = await import('../../src/analyzer.js');
@@ -57,12 +57,41 @@ describe('GitHub PR Analyzer', () => {
 
     expect(result.startDate).toBe(startDate);
     expect(result.endDate).toBe(endDate);
-    expect(result.totalPRs).toBe(0);
-    expect(result.prNumbers).toEqual([]);
-    expect(result.totalAdditions).toBe(0);
-    expect(result.totalDeletions).toBe(0);
-    expect(result.totalEditLines).toBe(0);
-    expect(result.userContributions).toEqual([]);
+    expect(result.totalPRs).toBe(8);
+    expect(result.prNumbers).toEqual([55, 56, 57, 58, 59, 62, 63, 65]);
+    expect(result.totalAdditions).toBe(1249);
+    expect(result.totalDeletions).toBe(624);
+    expect(result.totalEditLines).toBe(1873);
+    expect(result.userContributions.length).toBe(3);
+
+    // Check specific user contributions
+    const exkazuuContrib = result.userContributions.find((c) => c.user === 'exKAZUu');
+    const botContrib = result.userContributions.find((c) => c.user === 'WillBooster-bot');
+    const renovateContrib = result.userContributions.find((c) => c.user === 'renovate[bot]');
+
+    expect(exkazuuContrib).toBeDefined();
+    expect(exkazuuContrib?.additions).toBe(793);
+    expect(exkazuuContrib?.deletions).toBe(389);
+    expect(exkazuuContrib?.totalLines).toBe(1182);
+    expect(exkazuuContrib?.percentage).toBe(63);
+    expect(exkazuuContrib?.name).toBe('Sakamoto, Kazunori');
+    expect(exkazuuContrib?.email).toBe('exkazuu@gmail.com');
+
+    expect(botContrib).toBeDefined();
+    expect(botContrib?.additions).toBe(430);
+    expect(botContrib?.deletions).toBe(183);
+    expect(botContrib?.totalLines).toBe(613);
+    expect(botContrib?.percentage).toBe(33);
+    expect(botContrib?.name).toBe('WillBooster Inc.');
+    expect(botContrib?.email).toBe('bot@willbooster.com');
+
+    expect(renovateContrib).toBeDefined();
+    expect(renovateContrib?.additions).toBe(26);
+    expect(renovateContrib?.deletions).toBe(52);
+    expect(renovateContrib?.totalLines).toBe(78);
+    expect(renovateContrib?.percentage).toBe(4);
+    expect(renovateContrib?.name).toBe('renovate[bot]');
+    expect(renovateContrib?.email).toBe('29139614+renovate[bot]@users.noreply.github.com');
   }, 120000);
 
   test('analyze PR with exclusion options', async () => {
