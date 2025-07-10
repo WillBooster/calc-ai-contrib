@@ -19,7 +19,7 @@ export class Logger {
    * Log message only if verbose mode is enabled
    */
   log(message: string): void {
-    if (this.verbose) {
+    if (this._verbose) {
       console.log(message);
     }
   }
