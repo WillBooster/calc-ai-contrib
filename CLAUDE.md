@@ -1,7 +1,7 @@
 ## Project Information
 
 - Name: calc-ai-contrib
-- Description: undefined
+- Description: A calculator of AI contributions based on PRs and commits.
 - Package Manager: bun
 
 ## General Instructions
