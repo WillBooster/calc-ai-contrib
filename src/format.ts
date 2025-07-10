@@ -102,10 +102,10 @@ function formatDetailedBreakdown(result: BaseAnalysisResult, hasAIEmails: boolea
     lines.push('📊 DETAILED BREAKDOWN');
     lines.push('─'.repeat(40));
     lines.push(
-      `🤖 AI   : ${result.aiContributions.totalEditLines.toLocaleString().padStart(6)} Edits (+${result.aiContributions.totalAdditions.toLocaleString()} / -${result.aiContributions.totalDeletions.toLocaleString()})`
+      `🤖 AI   : ${result.aiContributions.totalEditLines.toLocaleString().padStart(10)} Edits (+${result.aiContributions.totalAdditions.toLocaleString()} / -${result.aiContributions.totalDeletions.toLocaleString()})`
     );
     lines.push(
-      `👥 Human: ${result.humanContributions.totalEditLines.toLocaleString().padStart(6)} Edits (+${result.humanContributions.totalAdditions.toLocaleString()} / -${result.humanContributions.totalDeletions.toLocaleString()})`
+      `👥 Human: ${result.humanContributions.totalEditLines.toLocaleString().padStart(10)} Edits (+${result.humanContributions.totalAdditions.toLocaleString()} / -${result.humanContributions.totalDeletions.toLocaleString()})`
     );
     lines.push('');
   }
@@ -130,7 +130,7 @@ function formatIndividualContributions(result: PRAnalysisResult | DateRangeAnaly
 
       lines.push(`${userInfo}:`);
       lines.push(
-        `  [${userBar}] ${contribution.percentage}% | ${contribution.totalLines.toLocaleString().padStart(6)} Edits: (+${contribution.additions.toLocaleString()} / -${contribution.deletions.toLocaleString()})`
+        `  [${userBar}] ${contribution.percentage}% | ${contribution.totalLines.toLocaleString().padStart(10)} Edits: (+${contribution.additions.toLocaleString()} / -${contribution.deletions.toLocaleString()})`
       );
       lines.push('');
     }
