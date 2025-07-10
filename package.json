@@ -5,9 +5,9 @@
   "license": "UNLICENSED",
   "author": "WillBooster Inc.",
   "type": "module",
-  "bin": "bin/gen-pr.js",
+  "bin": "bin/index.js",
   "files": [
-    "bin/gen-pr.js",
+    "bin/index.js",
     "dist/"
   ],
   "scripts": {
@@ -26,12 +26,14 @@
   "prettier": "@willbooster/prettier-config",
   "devDependencies": {
     "@biomejs/biome": "2.1.1",
+    "@octokit/types": "14.1.0",
     "@types/bun": "1.2.18",
     "@types/micromatch": "4.0.9",
     "@types/yargs": "17.0.33",
     "@willbooster/biome-config": "3.2.0",
     "@willbooster/prettier-config": "10.2.0",
     "@willbooster/wb": "9.0.1",
+    "ansis": "4.1.0",
     "build-ts": "15.0.11",
     "conventional-changelog-conventionalcommits": "9.0.0",
     "dotenv": "17.1.0",

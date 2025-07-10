@@ -1,6 +1,10 @@
+import ansis from 'ansis';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import { analyzePullRequestsByDateRangeMultiRepo, formatDateRangeAnalysisResult } from './analyzer.js';
+import { analyzePullRequestsByDateRangeMultiRepo } from './analyzer.js';
+import { hasExclusionOptions } from './exclusions.js';
+import { formatAnalysisResult, logExclusionOptions } from './format.js';
+import { parseRepositories, validateDateRange, validateRepositoryFormat } from './utils.js';
 
 async function main() {
   try {
@@ -43,31 +47,16 @@ async function main() {
         type: 'array',
         description: 'Email addresses to identify as AI contributors for human vs AI breakdown',
       })
+      .option('verbose', {
+        alias: 'v',
+        type: 'boolean',
+        description: 'Enable verbose logging (shows detailed progress information)',
+        default: false,
+      })
       .check((argv) => {
-        // Validate repository format
         const repos = argv.repo as string[];
-        for (const repo of repos) {
-          if (!repo.includes('/') || repo.split('/').length !== 2) {
-            throw new Error(`Invalid repository format: "${repo}". Expected format: "owner/repo"`);
-          }
-        }
-
-        // Validate date format
-        const startDate = new Date(argv['start-date']);
-        const endDate = new Date(argv['end-date']);
-
-        if (Number.isNaN(startDate.getTime())) {
-          throw new Error('Invalid start-date format. Use YYYY-MM-DD');
-        }
-
-        if (Number.isNaN(endDate.getTime())) {
-          throw new Error('Invalid end-date format. Use YYYY-MM-DD');
-        }
-
-        if (startDate > endDate) {
-          throw new Error('start-date must be before or equal to end-date');
-        }
-
+        validateRepositoryFormat(repos);
+        validateDateRange(argv['start-date'], argv['end-date']);
         return true;
       })
       .help()
@@ -104,13 +93,11 @@ async function main() {
       excludeEmails,
       excludeCommitMessages,
       aiEmails,
+      verbose,
     } = argv;
 
     // Parse repository specifications
-    const repositories = (repos as string[]).map((repoSpec) => {
-      const [owner, repo] = repoSpec.split('/');
-      return { owner, repo };
-    });
+    const repositories = parseRepositories(repos as string[]);
 
     // Build exclusion options
     const exclusionOptions = {
@@ -121,42 +108,26 @@ async function main() {
       aiEmails: aiEmails as string[] | undefined,
     };
 
-    // Log exclusion options if any are provided
-    const hasExclusions =
-      exclusionOptions.excludeFiles?.length ||
-      exclusionOptions.excludeUsers?.length ||
-      exclusionOptions.excludeEmails?.length ||
-      exclusionOptions.excludeCommitMessages?.length ||
-      exclusionOptions.aiEmails?.length;
-
-    if (hasExclusions) {
-      console.log('\nOptions:');
-      if (exclusionOptions.excludeFiles?.length) {
-        console.log(`  Exclude files: ${exclusionOptions.excludeFiles.join(', ')}`);
-      }
-      if (exclusionOptions.excludeUsers?.length) {
-        console.log(`  Exclude users: ${exclusionOptions.excludeUsers.join(', ')}`);
-      }
-      if (exclusionOptions.excludeEmails?.length) {
-        console.log(`  Exclude emails: ${exclusionOptions.excludeEmails.join(', ')}`);
-      }
-      if (exclusionOptions.excludeCommitMessages?.length) {
-        console.log(`  Exclude commit messages containing: ${exclusionOptions.excludeCommitMessages.join(', ')}`);
-      }
-      if (exclusionOptions.aiEmails?.length) {
-        console.log(`  AI emails: ${exclusionOptions.aiEmails.join(', ')}`);
-      }
-      console.log('');
+    // Log exclusion options if any are provided and verbose mode is enabled
+    if (hasExclusionOptions(exclusionOptions) && verbose) {
+      logExclusionOptions(exclusionOptions, ansis);
     }
 
-    console.log(`Analyzing PRs from ${repositories.length} repositories between ${startDate} and ${endDate}...`);
-    console.log('This method uses git blame to accurately attribute each line to its actual author.');
-    console.log('Note: Set GH_TOKEN environment variable for higher rate limits.');
+    console.log(
+      ansis.blue(`Analyzing PRs from ${repositories.length} repositories between ${startDate} and ${endDate}...`)
+    );
+    console.log(ansis.yellow('Note: Set GH_TOKEN environment variable for higher rate limits.'));
 
-    const result = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate, exclusionOptions);
-    console.log(`\n${formatDateRangeAnalysisResult(result, exclusionOptions)}`);
+    const result = await analyzePullRequestsByDateRangeMultiRepo(
+      repositories,
+      startDate,
+      endDate,
+      exclusionOptions,
+      verbose
+    );
+    console.log(`\n${formatAnalysisResult(result, exclusionOptions)}`);
   } catch (error) {
-    console.error('Error analyzing PR:', error);
+    console.error(ansis.red('Error analyzing PR:'), error);
   }
 }
 
