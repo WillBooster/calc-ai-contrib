@@ -15,6 +15,16 @@ export interface UserStats {
   email?: string;
 }
 
+export interface CommitAuthor {
+  name?: string;
+  email?: string;
+}
+
+export interface CommitContributors {
+  author: CommitAuthor;
+  coAuthors: CommitAuthor[];
+}
+
 export interface UserContribution {
   user: string;
   name?: string;
@@ -40,6 +50,7 @@ export interface BaseAnalysisResult {
   userContributions: UserContribution[];
   humanContributions: ContributionStats;
   aiContributions: ContributionStats;
+  pairContributions: ContributionStats;
 }
 
 export interface PRAnalysisResult extends BaseAnalysisResult {

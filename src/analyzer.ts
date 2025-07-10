@@ -24,6 +24,8 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
 
   let totalAdditions = 0;
   let totalDeletions = 0;
+  let totalPairAdditions = 0;
+  let totalPairDeletions = 0;
   const aggregatedUserStats = new Map<string, UserStats>();
   const allPrNumbers: number[] = [];
 
@@ -65,7 +67,7 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
           for (const file of filteredFiles) {
             logger.log(`Processing file: ${file.filename} (+${file.additions}/-${file.deletions})`);
 
-            const { additionsIncluded, deletionsIncluded } = processFileContributions(
+            const { additionsIncluded, deletionsIncluded, pairAdditions, pairDeletions } = processFileContributions(
               file,
               filteredCommits,
               aggregatedUserStats,
@@ -75,6 +77,8 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
 
             totalAdditions += additionsIncluded;
             totalDeletions += deletionsIncluded;
+            totalPairAdditions += pairAdditions;
+            totalPairDeletions += pairDeletions;
           }
         } catch (error) {
           logger.error(`Error analyzing PR #${prNumber}:`, error);
@@ -93,12 +97,13 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
     }
   }
 
-  const totalEditLines = totalAdditions + totalDeletions;
+  const totalPairEditLines = totalPairAdditions + totalPairDeletions;
+  const totalEditLines = totalAdditions + totalDeletions + totalPairEditLines;
 
   // Convert aggregated stats to user contributions
   const userContributions = convertToUserContributions(aggregatedUserStats, totalEditLines);
 
-  // Calculate human vs AI contributions
+  // Calculate human vs AI contributions (excluding pair programming)
   const aiEmails = exclusionOptions.aiEmails || [];
   const humanContribs = userContributions.filter((contrib) => !aiEmails.some((aiEmail) => contrib.email === aiEmail));
   const aiContribs = userContributions.filter((contrib) => aiEmails.some((aiEmail) => contrib.email === aiEmail));
@@ -106,17 +111,27 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
   const humanContributions = calculateContributionStats(humanContribs, totalEditLines);
   const aiContributions = calculateContributionStats(aiContribs, totalEditLines);
 
+  // Calculate pair programming contributions
+  const pairContributions = {
+    totalAdditions: totalPairAdditions,
+    totalDeletions: totalPairDeletions,
+    totalEditLines: totalPairEditLines,
+    percentage: totalEditLines > 0 ? Math.round((totalPairEditLines / totalEditLines) * 100) : 0,
+    peopleCount: 0, // Pair programming doesn't count as individual people
+  };
+
   return {
     startDate,
     endDate,
     totalPRs: allPrNumbers.length,
     prNumbers: allPrNumbers.sort((a, b) => a - b),
-    totalAdditions,
-    totalDeletions,
+    totalAdditions: totalAdditions + totalPairAdditions,
+    totalDeletions: totalDeletions + totalPairDeletions,
     totalEditLines,
     userContributions,
     humanContributions,
     aiContributions,
+    pairContributions,
   };
 }
 

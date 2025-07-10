@@ -89,6 +89,13 @@ function calculateContributions(userContributions: UserContribution[], aiEmails:
       percentage: aiPercentage,
       peopleCount: aiContribs.length,
     },
+    pairContributions: {
+      totalAdditions: 0,
+      totalDeletions: 0,
+      totalEditLines: 0,
+      percentage: 0,
+      peopleCount: 0,
+    },
   };
 }
 

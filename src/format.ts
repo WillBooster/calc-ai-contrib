@@ -80,13 +80,21 @@ function formatHeader(result: PRAnalysisResult | DateRangeAnalysisResult, hasAIE
   if (hasAIEmails) {
     const humanPercentage = result.humanContributions.percentage;
     const aiPercentage = result.aiContributions.percentage;
+    const pairPercentage = result.pairContributions.percentage;
     const progressBar = createProgressBar(aiPercentage, 22);
 
     lines.push('╠══════════════════════════════════════════════════╣');
-    lines.push(`║ ${`AI vs Human: [${progressBar}] ${aiPercentage}% / ${humanPercentage}%`.padEnd(48)} ║`);
-    lines.push(
-      `║ ${`Contributors: ${result.aiContributions.peopleCount} AI, ${result.humanContributions.peopleCount} Human`.padEnd(48)} ║`
-    );
+    if (pairPercentage > 0) {
+      lines.push(`║ ${`AI: ${aiPercentage}% | Human: ${humanPercentage}% | Pair: ${pairPercentage}%`.padEnd(48)} ║`);
+      lines.push(
+        `║ ${`Contributors: ${result.aiContributions.peopleCount} AI, ${result.humanContributions.peopleCount} Human`.padEnd(48)} ║`
+      );
+    } else {
+      lines.push(`║ ${`AI vs Human: [${progressBar}] ${aiPercentage}% / ${humanPercentage}%`.padEnd(48)} ║`);
+      lines.push(
+        `║ ${`Contributors: ${result.aiContributions.peopleCount} AI, ${result.humanContributions.peopleCount} Human`.padEnd(48)} ║`
+      );
+    }
   }
 
   lines.push('╚══════════════════════════════════════════════════╝');
@@ -107,6 +115,13 @@ function formatDetailedBreakdown(result: BaseAnalysisResult, hasAIEmails: boolea
     lines.push(
       `👥 Human: ${result.humanContributions.totalEditLines.toLocaleString().padStart(8)} Edits (+${result.humanContributions.totalAdditions.toLocaleString()} / -${result.humanContributions.totalDeletions.toLocaleString()})`
     );
+
+    if (result.pairContributions.percentage > 0) {
+      lines.push(
+        `🤝 Pair : ${result.pairContributions.totalEditLines.toLocaleString().padStart(8)} Edits (+${result.pairContributions.totalAdditions.toLocaleString()} / -${result.pairContributions.totalDeletions.toLocaleString()})`
+      );
+    }
+
     lines.push('');
   }
 

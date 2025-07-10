@@ -46,3 +46,43 @@ export function validateDateRange(startDate: string, endDate: string): void {
     throw new Error('start-date must be before or equal to end-date');
   }
 }
+
+/**
+ * Parse co-authors from commit message
+ */
+export function parseCoAuthors(commitMessage: string): Array<{ name?: string; email?: string }> {
+  const coAuthorRegex = /^Co-authored-by:\s*(.+?)\s*<(.+?)>\s*$/gm;
+  const coAuthors: Array<{ name?: string; email?: string }> = [];
+
+  let match: RegExpExecArray | null;
+  // biome-ignore lint/suspicious/noAssignInExpressions: This is a common pattern for regex matching
+  while ((match = coAuthorRegex.exec(commitMessage)) !== null) {
+    const name = match[1]?.trim();
+    const email = match[2]?.trim();
+    if (name && email) {
+      coAuthors.push({ name, email });
+    }
+  }
+
+  return coAuthors;
+}
+
+/**
+ * Determine if a commit represents pair programming (both AI and human contributors)
+ */
+export function isPairProgrammingCommit(
+  authorEmail: string | undefined,
+  coAuthorEmails: string[],
+  aiEmails: string[]
+): boolean {
+  const allEmails = [authorEmail, ...coAuthorEmails].filter((email): email is string => Boolean(email));
+
+  if (allEmails.length <= 1) {
+    return false; // Single contributor, not pair programming
+  }
+
+  const hasAI = allEmails.some((email) => aiEmails.includes(email));
+  const hasHuman = allEmails.some((email) => !aiEmails.includes(email));
+
+  return hasAI && hasHuman;
+}

@@ -214,8 +214,19 @@ describe('GitHub PR Analyzer', () => {
     expect(resultWithAI.aiContributions.percentage).toBe(47);
     expect(resultWithAI.aiContributions.peopleCount).toBe(1);
 
+    // Check pair programming contributions (should be 0 for this test)
+    expect(resultWithAI.pairContributions.totalAdditions).toBe(0);
+    expect(resultWithAI.pairContributions.totalDeletions).toBe(0);
+    expect(resultWithAI.pairContributions.totalEditLines).toBe(0);
+    expect(resultWithAI.pairContributions.percentage).toBe(0);
+    expect(resultWithAI.pairContributions.peopleCount).toBe(0);
+
     // Verify percentages add up to 100
-    expect(resultWithAI.humanContributions.percentage + resultWithAI.aiContributions.percentage).toBe(100);
+    expect(
+      resultWithAI.humanContributions.percentage +
+        resultWithAI.aiContributions.percentage +
+        resultWithAI.pairContributions.percentage
+    ).toBe(100);
 
     // Test with no AI emails specified (should have zero AI contributions)
     const resultWithoutAI = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate);
@@ -227,6 +238,10 @@ describe('GitHub PR Analyzer', () => {
     expect(resultWithoutAI.aiContributions.totalEditLines).toBe(0);
     expect(resultWithoutAI.aiContributions.percentage).toBe(0);
     expect(resultWithoutAI.aiContributions.peopleCount).toBe(0);
+
+    // Check pair programming contributions (should be 0 when no AI emails specified)
+    expect(resultWithoutAI.pairContributions.totalEditLines).toBe(0);
+    expect(resultWithoutAI.pairContributions.percentage).toBe(0);
   }, 60000);
 
   test('analyze date range with AI emails for human vs AI breakdown', async () => {
@@ -256,7 +271,51 @@ describe('GitHub PR Analyzer', () => {
     expect(resultWithAI.aiContributions.percentage).toBe(33);
     expect(resultWithAI.aiContributions.peopleCount).toBe(1);
 
+    // Check pair programming contributions (should be 0 for this test)
+    expect(resultWithAI.pairContributions.totalEditLines).toBe(0);
+    expect(resultWithAI.pairContributions.percentage).toBe(0);
+
     // Verify percentages add up to 100
-    expect(resultWithAI.humanContributions.percentage + resultWithAI.aiContributions.percentage).toBe(100);
+    expect(
+      resultWithAI.humanContributions.percentage +
+        resultWithAI.aiContributions.percentage +
+        resultWithAI.pairContributions.percentage
+    ).toBe(100);
   }, 120000);
+
+  test('should handle pair programming commits correctly', async () => {
+    // This test would require a repository with actual pair programming commits
+    // For now, we'll test the utility functions
+    const { parseCoAuthors, isPairProgrammingCommit } = await import('../../src/utils.js');
+
+    // Test co-author parsing
+    const commitMessage = `Fix bug in authentication
+
+Co-authored-by: John Doe <john@example.com>
+Co-authored-by: AI Assistant <ai@willbooster.com>`;
+
+    const coAuthors = parseCoAuthors(commitMessage);
+    expect(coAuthors).toHaveLength(2);
+    expect(coAuthors[0]).toEqual({ name: 'John Doe', email: 'john@example.com' });
+    expect(coAuthors[1]).toEqual({ name: 'AI Assistant', email: 'ai@willbooster.com' });
+
+    // Test pair programming detection
+    const aiEmails = ['ai@willbooster.com'];
+    const authorEmail = 'human@example.com';
+    const coAuthorEmails = ['ai@willbooster.com'];
+
+    expect(isPairProgrammingCommit(authorEmail, coAuthorEmails, aiEmails)).toBe(true);
+
+    // Test non-pair programming (all human)
+    expect(isPairProgrammingCommit('human1@example.com', ['human2@example.com'], aiEmails)).toBe(false);
+
+    // Test non-pair programming (all AI)
+    expect(
+      isPairProgrammingCommit(
+        'ai@willbooster.com',
+        ['ai2@willbooster.com'],
+        ['ai@willbooster.com', 'ai2@willbooster.com']
+      )
+    ).toBe(false);
+  });
 });
