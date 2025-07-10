@@ -1,7 +1,7 @@
 import { config } from 'dotenv';
 import micromatch from 'micromatch';
 import { Octokit } from 'octokit';
-import type { Logger } from './logger.js';
+import { Logger } from './logger.js';
 import type { DateRangeAnalysisResult, ExclusionOptions, UserContribution, UserStats } from './types.js';
 
 config();
