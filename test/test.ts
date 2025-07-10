@@ -252,7 +252,7 @@ function runTests() {
     console.log(legacyFormatted);
   }
 
-  console.log('\n' + '='.repeat(80));
+  console.log(`\n${'='.repeat(80)}`);
   console.log('✅ All tests completed successfully!');
   console.log('📝 Summary:');
   console.log('   - formatAnalysisResult: Works with both PR and DateRange results');
