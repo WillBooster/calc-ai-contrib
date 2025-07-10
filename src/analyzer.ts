@@ -44,10 +44,6 @@ interface BaseAnalysisResult {
   aiContributions: ContributionStats;
 }
 
-interface PRAnalysisResult extends BaseAnalysisResult {
-  prNumber: number;
-}
-
 interface DateRangeAnalysisResult extends BaseAnalysisResult {
   startDate: string;
   endDate: string;
@@ -62,215 +58,6 @@ const octokit = new Octokit({
 });
 
 type GitHubCommit = Awaited<ReturnType<typeof octokit.rest.pulls.listCommits>>['data'][0];
-
-export async function analyzePullRequest(
-  owner: string,
-  repo: string,
-  prNumber: number,
-  exclusionOptions: ExclusionOptions = {}
-): Promise<PRAnalysisResult> {
-  const filesResponse = await octokit.rest.pulls.listFiles({
-    owner,
-    repo,
-    pull_number: prNumber,
-  });
-
-  const files = filesResponse.data;
-  let _totalAdditions = 0;
-  let _totalDeletions = 0;
-  const userStats = new Map<string, UserStats>();
-
-  console.log(`Analyzing ${files.length} changed files...`);
-
-  console.log('Fetching PR commits...');
-  const allCommits = await getPRCommits(owner, repo, prNumber);
-  console.log(`Found ${allCommits.length} commits in PR`);
-
-  const filteredCommits = allCommits.filter((commit) => {
-    const commitMessage = commit.commit?.message || '';
-    return !shouldExcludeCommit(commitMessage, exclusionOptions.excludeCommitMessages);
-  });
-
-  if (filteredCommits.length !== allCommits.length) {
-    console.log(`Filtered out ${allCommits.length - filteredCommits.length} commits based on exclusion criteria`);
-  }
-
-  const filteredFiles = files.filter((file) => {
-    return !shouldExcludeFile(file.filename, exclusionOptions.excludeFiles);
-  });
-
-  if (filteredFiles.length !== files.length) {
-    console.log(`Filtered out ${files.length - filteredFiles.length} files based on exclusion criteria`);
-  }
-
-  for (const file of filteredFiles) {
-    console.log(`Processing file: ${file.filename} (+${file.additions}/-${file.deletions})`);
-    _totalAdditions += file.additions;
-    _totalDeletions += file.deletions;
-
-    const fileContributors = distributeFileContributions(filteredCommits, file);
-
-    for (const [author, stats] of fileContributors) {
-      if (shouldExcludeUser(author, stats.name, stats.email, exclusionOptions)) {
-        console.log(`Excluding user: ${author} (${stats.name || 'no name'}) <${stats.email || 'no email'}>`);
-        continue;
-      }
-
-      const currentStats = userStats.get(author) || {
-        additions: 0,
-        deletions: 0,
-        name: stats.name,
-        email: stats.email,
-      };
-      currentStats.additions += stats.additions;
-      currentStats.deletions += stats.deletions;
-
-      if (!currentStats.name && stats.name) {
-        currentStats.name = stats.name;
-      }
-      if (!currentStats.email && stats.email) {
-        currentStats.email = stats.email;
-      }
-      userStats.set(author, currentStats);
-    }
-  }
-
-  const userContributions: UserContribution[] = [];
-
-  for (const [user, stats] of userStats) {
-    userContributions.push({
-      user,
-      name: stats.name,
-      email: stats.email,
-      additions: stats.additions,
-      deletions: stats.deletions,
-      totalLines: stats.additions + stats.deletions,
-      percentage: 0,
-    });
-  }
-
-  const actualTotalEditLines = userContributions.reduce((sum, contrib) => sum + contrib.totalLines, 0);
-
-  for (const contribution of userContributions) {
-    contribution.percentage =
-      actualTotalEditLines > 0 ? Math.round((contribution.totalLines / actualTotalEditLines) * 100) : 0;
-  }
-
-  userContributions.sort((a, b) => b.totalLines - a.totalLines);
-
-  const actualTotalAdditions = userContributions.reduce((sum, contrib) => sum + contrib.additions, 0);
-  const actualTotalDeletions = userContributions.reduce((sum, contrib) => sum + contrib.deletions, 0);
-
-  const aiContribs = userContributions.filter((contrib) => isAIUser(contrib.email, exclusionOptions.aiEmails));
-  const humanContribs = userContributions.filter((contrib) => !isAIUser(contrib.email, exclusionOptions.aiEmails));
-
-  const aiTotalAdditions = aiContribs.reduce((sum, contrib) => sum + contrib.additions, 0);
-  const aiTotalDeletions = aiContribs.reduce((sum, contrib) => sum + contrib.deletions, 0);
-  const aiTotalEditLines = aiTotalAdditions + aiTotalDeletions;
-
-  const humanTotalAdditions = humanContribs.reduce((sum, contrib) => sum + contrib.additions, 0);
-  const humanTotalDeletions = humanContribs.reduce((sum, contrib) => sum + contrib.deletions, 0);
-  const humanTotalEditLines = humanTotalAdditions + humanTotalDeletions;
-
-  const aiPercentage = actualTotalEditLines > 0 ? Math.round((aiTotalEditLines / actualTotalEditLines) * 100) : 0;
-  const humanPercentage = actualTotalEditLines > 0 ? Math.round((humanTotalEditLines / actualTotalEditLines) * 100) : 0;
-
-  return {
-    prNumber,
-    totalAdditions: actualTotalAdditions,
-    totalDeletions: actualTotalDeletions,
-    totalEditLines: actualTotalEditLines,
-    userContributions,
-    humanContributions: {
-      totalAdditions: humanTotalAdditions,
-      totalDeletions: humanTotalDeletions,
-      totalEditLines: humanTotalEditLines,
-      percentage: humanPercentage,
-      peopleCount: humanContribs.length,
-    },
-    aiContributions: {
-      totalAdditions: aiTotalAdditions,
-      totalDeletions: aiTotalDeletions,
-      totalEditLines: aiTotalEditLines,
-      percentage: aiPercentage,
-      peopleCount: aiContribs.length,
-    },
-  };
-}
-
-export function formatAnalysisResult(result: PRAnalysisResult, exclusionOptions: ExclusionOptions = {}): string {
-  const lines: string[] = [];
-
-  lines.push('╔══════════════════════════════════════════════════════════════════════════════════════╗');
-  lines.push(
-    `║                              PR #${result.prNumber.toString().padEnd(4)} ANALYSIS REPORT                              ║`
-  );
-  lines.push('╚══════════════════════════════════════════════════════════════════════════════════════╝');
-  lines.push('');
-
-  lines.push('📊 SUMMARY STATISTICS');
-  lines.push('─'.repeat(50));
-  lines.push(`Total Additions: ${result.totalAdditions.toLocaleString()}`);
-  lines.push(`Total Deletions: ${result.totalDeletions.toLocaleString()}`);
-  lines.push(`Total Edit Lines: ${result.totalEditLines.toLocaleString()}`);
-  lines.push('');
-
-  const hasAIEmails = exclusionOptions.aiEmails && exclusionOptions.aiEmails.length > 0;
-  if (hasAIEmails) {
-    lines.push('🤖 HUMAN vs AI BREAKDOWN');
-    lines.push('─'.repeat(50));
-
-    const humanPercentage = result.humanContributions.percentage;
-    const aiPercentage = result.aiContributions.percentage;
-    const barLength = 40;
-    const humanBars = Math.round((humanPercentage / 100) * barLength);
-    const aiBars = barLength - humanBars;
-
-    lines.push(`┌${'─'.repeat(barLength + 2)}┐`);
-    lines.push(`│${'█'.repeat(humanBars)}${'░'.repeat(aiBars)}│`);
-    lines.push(`└${'─'.repeat(barLength + 2)}┘`);
-    lines.push(
-      `  Human: ${humanPercentage}%${' '.repeat(Math.max(0, 30 - humanPercentage.toString().length))}AI: ${aiPercentage}%`
-    );
-    lines.push('');
-
-    lines.push(`👥 Human Contributors: ${result.humanContributions.percentage}%`);
-    lines.push(`   • Additions: +${result.humanContributions.totalAdditions.toLocaleString()}`);
-    lines.push(`   • Deletions: -${result.humanContributions.totalDeletions.toLocaleString()}`);
-    lines.push(`   • Total Edits: ${result.humanContributions.totalEditLines.toLocaleString()}`);
-    lines.push(`   • People: ${result.humanContributions.peopleCount}`);
-    lines.push('');
-
-    lines.push(`🤖 AI Contributors: ${result.aiContributions.percentage}%`);
-    lines.push(`   • Additions: +${result.aiContributions.totalAdditions.toLocaleString()}`);
-    lines.push(`   • Deletions: -${result.aiContributions.totalDeletions.toLocaleString()}`);
-    lines.push(`   • Total Edits: ${result.aiContributions.totalEditLines.toLocaleString()}`);
-    lines.push(`   • People: ${result.aiContributions.peopleCount}`);
-    lines.push('');
-  }
-
-  lines.push('👤 INDIVIDUAL CONTRIBUTIONS');
-  lines.push('─'.repeat(50));
-
-  for (const contribution of result.userContributions) {
-    const userInfo = contribution.user;
-    const nameInfo = contribution.name ? ` (${contribution.name})` : '';
-    const emailInfo = contribution.email ? ` <${contribution.email}>` : '';
-
-    const userBarLength = 20;
-    const userBars = Math.round((contribution.percentage / 100) * userBarLength);
-    const userBar = '█'.repeat(userBars) + '░'.repeat(userBarLength - userBars);
-
-    lines.push(`${userInfo}${nameInfo}${emailInfo}:`);
-    lines.push(`  [${userBar}] ${contribution.percentage}%`);
-    lines.push(
-      `  +${contribution.additions.toLocaleString()} / -${contribution.deletions.toLocaleString()} (${contribution.totalLines.toLocaleString()} total)`
-    );
-    lines.push('');
-  }
-
-  return lines.join('\n');
-}
 
 export function formatDateRangeAnalysisResult(
   result: DateRangeAnalysisResult,
@@ -502,32 +289,102 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
     console.log(`\nProcessing repository: ${owner}/${repo}`);
 
     try {
-      const repoResult = await analyzePullRequestsByDateRange(owner, repo, startDate, endDate, exclusionOptions);
+      // Find PRs in date range for this repository
+      const prNumbers = await findPRsByDateRange(owner, repo, startDate, endDate);
 
-      totalAdditions += repoResult.totalAdditions;
-      totalDeletions += repoResult.totalDeletions;
-      allPrNumbers.push(...repoResult.prNumbers);
+      if (prNumbers.length === 0) {
+        console.log(`No PRs found in the specified date range for ${owner}/${repo}`);
+        continue;
+      }
 
-      // Aggregate user contributions across repositories
-      for (const contribution of repoResult.userContributions) {
-        const currentStats = aggregatedUserStats.get(contribution.user) || {
-          additions: 0,
-          deletions: 0,
-          name: contribution.name,
-          email: contribution.email,
-        };
+      console.log(`Found ${prNumbers.length} PRs in the specified date range`);
+      allPrNumbers.push(...prNumbers);
 
-        currentStats.additions += contribution.additions;
-        currentStats.deletions += contribution.deletions;
+      console.log(`Analyzing ${prNumbers.length} PRs...`);
 
-        if (!currentStats.name && contribution.name) {
-          currentStats.name = contribution.name;
+      // Analyze each PR directly
+      for (let i = 0; i < prNumbers.length; i++) {
+        const prNumber = prNumbers[i];
+        console.log(`\n[${i + 1}/${prNumbers.length}] Analyzing PR #${prNumber}...`);
+
+        try {
+          // Get PR files
+          const filesResponse = await octokit.rest.pulls.listFiles({
+            owner,
+            repo,
+            pull_number: prNumber,
+          });
+
+          const files = filesResponse.data;
+          console.log(`Analyzing ${files.length} changed files...`);
+
+          // Get PR commits
+          console.log('Fetching PR commits...');
+          const allCommits = await getPRCommits(owner, repo, prNumber);
+          console.log(`Found ${allCommits.length} commits in PR`);
+
+          // Filter commits by exclusion criteria
+          const filteredCommits = allCommits.filter((commit) => {
+            const commitMessage = commit.commit?.message || '';
+            return !shouldExcludeCommit(commitMessage, exclusionOptions.excludeCommitMessages);
+          });
+
+          if (filteredCommits.length !== allCommits.length) {
+            console.log(
+              `Filtered out ${allCommits.length - filteredCommits.length} commits based on exclusion criteria`
+            );
+          }
+
+          // Filter files by exclusion criteria
+          const filteredFiles = files.filter((file) => {
+            return !shouldExcludeFile(file.filename, exclusionOptions.excludeFiles);
+          });
+
+          if (filteredFiles.length !== files.length) {
+            console.log(`Filtered out ${files.length - filteredFiles.length} files based on exclusion criteria`);
+          }
+
+          // Process each file
+          for (const file of filteredFiles) {
+            console.log(`Processing file: ${file.filename} (+${file.additions}/-${file.deletions})`);
+
+            const fileContributors = distributeFileContributions(filteredCommits, file);
+            let fileAdditionsIncluded = 0;
+            let fileDeletionsIncluded = 0;
+
+            for (const [author, stats] of fileContributors) {
+              if (shouldExcludeUser(author, stats.name, stats.email, exclusionOptions)) {
+                console.log(`Excluding user: ${author} (${stats.name || 'no name'}) <${stats.email || 'no email'}>`);
+                continue;
+              }
+
+              const currentStats = aggregatedUserStats.get(author) || {
+                additions: 0,
+                deletions: 0,
+                name: stats.name,
+                email: stats.email,
+              };
+              currentStats.additions += stats.additions;
+              currentStats.deletions += stats.deletions;
+              fileAdditionsIncluded += stats.additions;
+              fileDeletionsIncluded += stats.deletions;
+
+              if (!currentStats.name && stats.name) {
+                currentStats.name = stats.name;
+              }
+              if (!currentStats.email && stats.email) {
+                currentStats.email = stats.email;
+              }
+              aggregatedUserStats.set(author, currentStats);
+            }
+
+            // Only count additions/deletions from non-excluded users
+            totalAdditions += fileAdditionsIncluded;
+            totalDeletions += fileDeletionsIncluded;
+          }
+        } catch (error) {
+          console.error(`Error analyzing PR #${prNumber}:`, error);
         }
-        if (!currentStats.email && contribution.email) {
-          currentStats.email = contribution.email;
-        }
-
-        aggregatedUserStats.set(contribution.user, currentStats);
       }
     } catch (error) {
       console.error(`Error analyzing repository ${owner}/${repo}:`, error);
@@ -591,145 +448,6 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
   };
 }
 
-export async function analyzePullRequestsByDateRange(
-  owner: string,
-  repo: string,
-  startDate: string,
-  endDate: string,
-  exclusionOptions: ExclusionOptions = {}
-): Promise<DateRangeAnalysisResult> {
-  const prNumbers = await findPRsByDateRange(owner, repo, startDate, endDate);
-
-  if (prNumbers.length === 0) {
-    return {
-      startDate,
-      endDate,
-      totalPRs: 0,
-      prNumbers: [],
-      totalAdditions: 0,
-      totalDeletions: 0,
-      totalEditLines: 0,
-      userContributions: [],
-      humanContributions: {
-        totalAdditions: 0,
-        totalDeletions: 0,
-        totalEditLines: 0,
-        percentage: 0,
-        peopleCount: 0,
-      },
-      aiContributions: {
-        totalAdditions: 0,
-        totalDeletions: 0,
-        totalEditLines: 0,
-        percentage: 0,
-        peopleCount: 0,
-      },
-    };
-  }
-
-  console.log(`\nAnalyzing ${prNumbers.length} PRs...`);
-
-  let totalAdditions = 0;
-  let totalDeletions = 0;
-  const aggregatedUserStats = new Map<string, UserStats>();
-
-  for (let i = 0; i < prNumbers.length; i++) {
-    const prNumber = prNumbers[i];
-    console.log(`\n[${i + 1}/${prNumbers.length}] Analyzing PR #${prNumber}...`);
-
-    try {
-      const prResult = await analyzePullRequest(owner, repo, prNumber, exclusionOptions);
-
-      totalAdditions += prResult.totalAdditions;
-      totalDeletions += prResult.totalDeletions;
-
-      for (const contribution of prResult.userContributions) {
-        const currentStats = aggregatedUserStats.get(contribution.user) || {
-          additions: 0,
-          deletions: 0,
-          name: contribution.name,
-          email: contribution.email,
-        };
-
-        currentStats.additions += contribution.additions;
-        currentStats.deletions += contribution.deletions;
-
-        if (!currentStats.name && contribution.name) {
-          currentStats.name = contribution.name;
-        }
-        if (!currentStats.email && contribution.email) {
-          currentStats.email = contribution.email;
-        }
-
-        aggregatedUserStats.set(contribution.user, currentStats);
-      }
-    } catch (error) {
-      console.error(`Error analyzing PR #${prNumber}:`, error);
-    }
-  }
-
-  const userContributions: UserContribution[] = [];
-
-  for (const [user, stats] of aggregatedUserStats) {
-    userContributions.push({
-      user,
-      name: stats.name,
-      email: stats.email,
-      additions: stats.additions,
-      deletions: stats.deletions,
-      totalLines: stats.additions + stats.deletions,
-      percentage: 0,
-    });
-  }
-
-  const totalEditLines = totalAdditions + totalDeletions;
-
-  for (const contribution of userContributions) {
-    contribution.percentage = totalEditLines > 0 ? Math.round((contribution.totalLines / totalEditLines) * 100) : 0;
-  }
-
-  userContributions.sort((a, b) => b.totalLines - a.totalLines);
-
-  const aiContribs = userContributions.filter((contrib) => isAIUser(contrib.email, exclusionOptions.aiEmails));
-  const humanContribs = userContributions.filter((contrib) => !isAIUser(contrib.email, exclusionOptions.aiEmails));
-
-  const aiTotalAdditions = aiContribs.reduce((sum, contrib) => sum + contrib.additions, 0);
-  const aiTotalDeletions = aiContribs.reduce((sum, contrib) => sum + contrib.deletions, 0);
-  const aiTotalEditLines = aiTotalAdditions + aiTotalDeletions;
-
-  const humanTotalAdditions = humanContribs.reduce((sum, contrib) => sum + contrib.additions, 0);
-  const humanTotalDeletions = humanContribs.reduce((sum, contrib) => sum + contrib.deletions, 0);
-  const humanTotalEditLines = humanTotalAdditions + humanTotalDeletions;
-
-  const aiPercentage = totalEditLines > 0 ? Math.round((aiTotalEditLines / totalEditLines) * 100) : 0;
-  const humanPercentage = totalEditLines > 0 ? Math.round((humanTotalEditLines / totalEditLines) * 100) : 0;
-
-  return {
-    startDate,
-    endDate,
-    totalPRs: prNumbers.length,
-    prNumbers,
-    totalAdditions,
-    totalDeletions,
-    totalEditLines,
-    userContributions,
-    humanContributions: {
-      totalAdditions: humanTotalAdditions,
-      totalDeletions: humanTotalDeletions,
-      totalEditLines: humanTotalEditLines,
-      percentage: humanPercentage,
-      peopleCount: humanContribs.length,
-    },
-    aiContributions: {
-      totalAdditions: aiTotalAdditions,
-      totalDeletions: aiTotalDeletions,
-      totalEditLines: aiTotalEditLines,
-      percentage: aiPercentage,
-      peopleCount: aiContribs.length,
-    },
-  };
-}
-
 function shouldExcludeFile(filename: string, excludePatterns: string[] = []): boolean {
   return excludePatterns.some((pattern) => micromatch.isMatch(filename, pattern));
 }
@@ -753,11 +471,4 @@ function shouldExcludeUser(
 
 function shouldExcludeCommit(commitMessage: string, excludePatterns: string[] = []): boolean {
   return excludePatterns.some((pattern) => commitMessage.includes(pattern));
-}
-
-function isAIUser(email: string | undefined, aiEmails: string[] = []): boolean {
-  if (!email) {
-    return false;
-  }
-  return aiEmails.includes(email);
 }
