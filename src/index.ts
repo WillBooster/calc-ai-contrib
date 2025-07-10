@@ -1,7 +1,8 @@
 import ansis from 'ansis';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import { analyzePullRequestsByDateRangeMultiRepo, formatDateRangeAnalysisResult } from './analyzer.js';
+import { analyzePullRequestsByDateRangeMultiRepo } from './analyzer.js';
+import { formatAnalysisResult } from './format.js';
 
 async function main() {
   try {
@@ -171,7 +172,7 @@ async function main() {
       exclusionOptions,
       verbose
     );
-    console.log(`\n${formatDateRangeAnalysisResult(result, exclusionOptions)}`);
+    console.log(`\n${formatAnalysisResult(result, exclusionOptions)}`);
   } catch (error) {
     console.error(ansis.red('Error analyzing PR:'), error);
   }
