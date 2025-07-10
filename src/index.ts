@@ -37,6 +37,22 @@ async function main() {
         type: 'string',
         description: 'End date for PR search (ISO format: YYYY-MM-DD)',
       })
+      .option('exclude-files', {
+        type: 'array',
+        description: 'Glob patterns for files to exclude (e.g., "*.md" "test/**")',
+      })
+      .option('exclude-users', {
+        type: 'array',
+        description: 'Usernames to exclude from contribution analysis',
+      })
+      .option('exclude-emails', {
+        type: 'array',
+        description: 'Email addresses to exclude from contribution analysis',
+      })
+      .option('exclude-commit-messages', {
+        type: 'array',
+        description: 'Text patterns to exclude commits containing these strings',
+      })
       .check((argv) => {
         const hasPrNumber = argv['pr-number'] !== undefined;
         const hasDateRange = argv['start-date'] !== undefined && argv['end-date'] !== undefined;
@@ -82,23 +98,73 @@ async function main() {
         'Analyze all PRs in January 2024'
       )
       .example('$0 -o WillBooster -r gen-pr -s 2024-01-01 -e 2024-01-31', 'Same as above using short options')
+      .example(
+        '$0 -o WillBooster -r gen-pr -p 65 --exclude-files "*.md" "test/**" --exclude-users "bot"',
+        'Analyze PR #65 excluding markdown files, test directory, and bot user'
+      )
+      .example(
+        '$0 -o WillBooster -r gen-pr -p 65 --exclude-emails "bot@example.com" --exclude-commit-messages "auto-generated"',
+        'Analyze PR #65 excluding specific email and commits with "auto-generated" text'
+      )
       .parse();
 
-    const { owner, repo, prNumber, startDate, endDate } = argv;
+    const {
+      owner,
+      repo,
+      prNumber,
+      startDate,
+      endDate,
+      excludeFiles,
+      excludeUsers,
+      excludeEmails,
+      excludeCommitMessages,
+    } = argv;
+
+    // Build exclusion options
+    const exclusionOptions = {
+      excludeFiles: excludeFiles as string[] | undefined,
+      excludeUsers: excludeUsers as string[] | undefined,
+      excludeEmails: excludeEmails as string[] | undefined,
+      excludeCommitMessages: excludeCommitMessages as string[] | undefined,
+    };
+
+    // Log exclusion options if any are provided
+    const hasExclusions =
+      exclusionOptions.excludeFiles?.length ||
+      exclusionOptions.excludeUsers?.length ||
+      exclusionOptions.excludeEmails?.length ||
+      exclusionOptions.excludeCommitMessages?.length;
+
+    if (hasExclusions) {
+      console.log('\nExclusion options:');
+      if (exclusionOptions.excludeFiles?.length) {
+        console.log(`  Files: ${exclusionOptions.excludeFiles.join(', ')}`);
+      }
+      if (exclusionOptions.excludeUsers?.length) {
+        console.log(`  Users: ${exclusionOptions.excludeUsers.join(', ')}`);
+      }
+      if (exclusionOptions.excludeEmails?.length) {
+        console.log(`  Emails: ${exclusionOptions.excludeEmails.join(', ')}`);
+      }
+      if (exclusionOptions.excludeCommitMessages?.length) {
+        console.log(`  Commit messages containing: ${exclusionOptions.excludeCommitMessages.join(', ')}`);
+      }
+      console.log('');
+    }
 
     if (prNumber) {
       console.log(`Analyzing PR #${prNumber} from ${owner}/${repo} using diff-based analysis...`);
       console.log('This method uses git blame to accurately attribute each line to its actual author.');
       console.log('Note: Set GH_TOKEN environment variable for higher rate limits.');
 
-      const result = await analyzePullRequest(owner, repo, prNumber);
+      const result = await analyzePullRequest(owner, repo, prNumber, exclusionOptions);
       console.log(`\n${formatAnalysisResult(result)}`);
     } else if (startDate && endDate) {
       console.log(`Analyzing PRs from ${owner}/${repo} between ${startDate} and ${endDate}...`);
       console.log('This method uses git blame to accurately attribute each line to its actual author.');
       console.log('Note: Set GH_TOKEN environment variable for higher rate limits.');
 
-      const result = await analyzePullRequestsByDateRange(owner, repo, startDate, endDate);
+      const result = await analyzePullRequestsByDateRange(owner, repo, startDate, endDate, exclusionOptions);
       console.log(`\n${formatDateRangeAnalysisResult(result)}`);
     }
   } catch (error) {
