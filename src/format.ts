@@ -1,3 +1,4 @@
+import type ansis from 'ansis';
 import type { BaseAnalysisResult, DateRangeAnalysisResult, ExclusionOptions, PRAnalysisResult } from './types.js';
 
 /**
@@ -20,22 +21,22 @@ export function createProgressBar(percentage: number, length: number = 16): stri
 /**
  * Log exclusion options if any are provided
  */
-export function logExclusionOptions(options: ExclusionOptions, ansis: any): void {
-  console.log(ansis.dim('\nOptions:'));
+export function logExclusionOptions(options: ExclusionOptions, ansiColors: typeof ansis): void {
+  console.log(ansiColors.dim('\nOptions:'));
   if (options.excludeFiles?.length) {
-    console.log(ansis.dim(`  Exclude files: ${options.excludeFiles.join(', ')}`));
+    console.log(ansiColors.dim(`  Exclude files: ${options.excludeFiles.join(', ')}`));
   }
   if (options.excludeUsers?.length) {
-    console.log(ansis.dim(`  Exclude users: ${options.excludeUsers.join(', ')}`));
+    console.log(ansiColors.dim(`  Exclude users: ${options.excludeUsers.join(', ')}`));
   }
   if (options.excludeEmails?.length) {
-    console.log(ansis.dim(`  Exclude emails: ${options.excludeEmails.join(', ')}`));
+    console.log(ansiColors.dim(`  Exclude emails: ${options.excludeEmails.join(', ')}`));
   }
   if (options.excludeCommitMessages?.length) {
-    console.log(ansis.dim(`  Exclude commit messages containing: ${options.excludeCommitMessages.join(', ')}`));
+    console.log(ansiColors.dim(`  Exclude commit messages containing: ${options.excludeCommitMessages.join(', ')}`));
   }
   if (options.aiEmails?.length) {
-    console.log(ansis.dim(`  AI emails: ${options.aiEmails.join(', ')}`));
+    console.log(ansiColors.dim(`  AI emails: ${options.aiEmails.join(', ')}`));
   }
   console.log('');
 }

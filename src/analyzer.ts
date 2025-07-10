@@ -3,7 +3,7 @@ import { Octokit } from 'octokit';
 import { calculateContributionStats, convertToUserContributions, processFileContributions } from './contributions.js';
 import { filterCommits, filterFiles } from './exclusions.js';
 import { Logger } from './logger.js';
-import type { DateRangeAnalysisResult, ExclusionOptions, UserStats } from './types.js';
+import type { DateRangeAnalysisResult, ExclusionOptions, GitHubCommit, UserStats } from './types.js';
 import type { Repository } from './utils.js';
 
 config();
@@ -11,8 +11,6 @@ config();
 const octokit = new Octokit({
   auth: process.env.GH_TOKEN,
 });
-
-type GitHubCommit = Awaited<ReturnType<typeof octokit.rest.pulls.listCommits>>['data'][0];
 
 export async function analyzePullRequestsByDateRangeMultiRepo(
   repositories: Repository[],

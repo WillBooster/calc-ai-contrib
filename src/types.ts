@@ -50,3 +50,27 @@ export interface DateRangeAnalysisResult extends BaseAnalysisResult {
   totalPRs: number;
   prNumbers: number[];
 }
+
+// GitHub API types
+export interface GitHubAuthor {
+  name?: string | null;
+  email?: string | null;
+  login?: string;
+  date?: string;
+}
+
+export interface GitHubCommitData {
+  author?: GitHubAuthor | null;
+  message?: string;
+}
+
+export interface GitHubCommit {
+  author?: GitHubAuthor | Record<string, unknown> | null;
+  commit?: GitHubCommitData;
+}
+
+export interface GitHubFile {
+  filename: string;
+  additions: number;
+  deletions: number;
+}

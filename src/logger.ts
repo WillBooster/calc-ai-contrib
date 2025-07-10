@@ -4,7 +4,7 @@ import ansis from 'ansis';
  * Simple logging utility that respects verbose flag and provides colorized output
  */
 export class Logger {
-  private _verbose: boolean;
+  private readonly _verbose: boolean;
 
   constructor(verbose: boolean = false) {
     this._verbose = verbose;

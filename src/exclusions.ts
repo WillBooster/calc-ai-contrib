@@ -1,5 +1,6 @@
 import micromatch from 'micromatch';
-import type { ExclusionOptions } from './types.js';
+import type { Logger } from './logger.js';
+import type { ExclusionOptions, GitHubCommit, GitHubFile } from './types.js';
 
 /**
  * Check if any exclusion options are provided
@@ -51,7 +52,11 @@ export function shouldExcludeCommit(commitMessage: string, excludePatterns: stri
 /**
  * Filter commits based on exclusion criteria
  */
-export function filterCommits(commits: any[], exclusionOptions: ExclusionOptions, logger: any): any[] {
+export function filterCommits(
+  commits: GitHubCommit[],
+  exclusionOptions: ExclusionOptions,
+  logger: Logger
+): GitHubCommit[] {
   const filteredCommits = commits.filter((commit) => {
     const commitMessage = commit.commit?.message || '';
     return !shouldExcludeCommit(commitMessage, exclusionOptions.excludeCommitMessages);
@@ -67,7 +72,7 @@ export function filterCommits(commits: any[], exclusionOptions: ExclusionOptions
 /**
  * Filter files based on exclusion criteria
  */
-export function filterFiles(files: any[], exclusionOptions: ExclusionOptions, logger: any): any[] {
+export function filterFiles(files: GitHubFile[], exclusionOptions: ExclusionOptions, logger: Logger): GitHubFile[] {
   const filteredFiles = files.filter((file) => {
     return !shouldExcludeFile(file.filename, exclusionOptions.excludeFiles);
   });

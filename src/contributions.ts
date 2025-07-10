@@ -1,5 +1,6 @@
 import { shouldExcludeUser } from './exclusions.js';
-import type { ExclusionOptions } from './types.js';
+import type { Logger } from './logger.js';
+import type { ExclusionOptions, GitHubAuthor, GitHubCommit, GitHubFile, UserContribution, UserStats } from './types.js';
 
 /**
  * Calculate contribution statistics for a group of users
@@ -31,11 +32,7 @@ export function calculateContributionStats(
 /**
  * Merge user stats into aggregated map
  */
-export function mergeUserStats(
-  aggregatedStats: Map<string, any>,
-  author: string,
-  stats: { additions: number; deletions: number; name?: string; email?: string }
-): void {
+export function mergeUserStats(aggregatedStats: Map<string, UserStats>, author: string, stats: UserStats): void {
   const currentStats = aggregatedStats.get(author) || {
     additions: 0,
     deletions: 0,
@@ -61,17 +58,9 @@ export function mergeUserStats(
  * Convert aggregated user stats to user contributions array
  */
 export function convertToUserContributions(
-  aggregatedStats: Map<string, any>,
+  aggregatedStats: Map<string, UserStats>,
   totalEditLines: number
-): Array<{
-  user: string;
-  name?: string;
-  email?: string;
-  additions: number;
-  deletions: number;
-  totalLines: number;
-  percentage: number;
-}> {
+): UserContribution[] {
   return Array.from(aggregatedStats.entries())
     .map(([user, stats]) => ({
       user,
@@ -89,11 +78,11 @@ export function convertToUserContributions(
  * Process file contributions and update aggregated stats
  */
 export function processFileContributions(
-  file: { filename: string; additions: number; deletions: number },
-  commits: any[],
-  aggregatedUserStats: Map<string, any>,
+  file: GitHubFile,
+  commits: GitHubCommit[],
+  aggregatedUserStats: Map<string, UserStats>,
   exclusionOptions: ExclusionOptions,
-  logger: any
+  logger: Logger
 ): { additionsIncluded: number; deletionsIncluded: number } {
   const fileContributors = distributeFileContributions(commits, file);
   let fileAdditionsIncluded = 0;
@@ -119,23 +108,25 @@ export function processFileContributions(
 /**
  * Distribute file contributions among commits
  */
-export function distributeFileContributions(
-  commits: any[],
-  file: { filename: string; additions: number; deletions: number }
-): Map<string, any> {
-  const contributions = new Map<string, any>();
+export function distributeFileContributions(commits: GitHubCommit[], file: GitHubFile): Map<string, UserStats> {
+  const contributions = new Map<string, UserStats>();
 
   if (commits.length === 0) {
     contributions.set('Unknown', { additions: file.additions, deletions: file.deletions });
     return contributions;
   }
 
-  const authorsMap = new Map<string, any>();
+  const authorsMap = new Map<string, Pick<UserStats, 'name' | 'email'>>();
 
   for (const commit of commits) {
-    const author = commit.author?.login || commit.commit?.author?.name || 'Unknown';
-    const name = commit.commit?.author?.name;
-    const email = commit.commit?.author?.email;
+    // Handle the case where author might be a Record<string, unknown> or null
+    const authorLogin =
+      typeof commit.author === 'object' && commit.author && 'login' in commit.author
+        ? (commit.author as GitHubAuthor).login
+        : undefined;
+    const author = authorLogin || commit.commit?.author?.name || 'Unknown';
+    const name = commit.commit?.author?.name || undefined;
+    const email = commit.commit?.author?.email || undefined;
 
     if (!authorsMap.has(author)) {
       authorsMap.set(author, { name, email });
