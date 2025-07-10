@@ -1,6 +1,6 @@
 name: Test
 on:
-  pull_request: 
+  pull_request:
   push:
     branches:
       - main
@@ -16,3 +16,4 @@ jobs:
     secrets:
       DOT_ENV: ${{ secrets.DOT_ENV }}
       GH_TOKEN: ${{ secrets.PUBLIC_GH_BOT_PAT }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
