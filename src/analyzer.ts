@@ -400,6 +400,11 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
           process.stdout.write('.');
         }
       }
+
+      // Add newline after processing all PRs in this repository
+      if (!logger.verbose && prNumbers.length > 0) {
+        console.log(''); // Add newline after dots
+      }
     } catch (error) {
       logger.error(`Error analyzing repository ${owner}/${repo}:`, error);
       // Continue with other repositories
