@@ -91,10 +91,11 @@ async function main() {
     const repositories = parseRepositories(repos as string[]);
 
     // Build exclusion options
-    const aiEmailsSet = new Set<string>(['aider@aider.chat', 'noreply@anthropic.com']);
-    if (aiEmails) {
-      (aiEmails as string[]).forEach((email) => aiEmailsSet.add(email));
-    }
+    const aiEmailsSet = new Set<string>([
+      ...(aiEmails?.map((e) => String(e)) ?? []),
+      'aider@aider.chat',
+      'noreply@anthropic.com',
+    ]);
 
     const exclusionOptions = {
       excludeFiles: excludeFiles as string[] | undefined,
