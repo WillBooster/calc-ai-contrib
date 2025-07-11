@@ -16,41 +16,53 @@
 ## 🚀 Quick Start
 
 ```bash
-# npx
-GH_TOKEN=[your_github_token_here] npx --yes calc-ai-contrib --repo WillBooster/calc-ai-contrib --pr-numbers 123 456 --exclude-users "renovate[bot]" --ai-emails "bot@willbooster.com" "agent@willbooster.com"
+# Analyze specific PRs
+GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib --repo WillBooster/calc-ai-contrib --pr-numbers 123 456 --exclude-users "renovate[bot]" --ai-emails "bot@willbooster.com"
 
-# bunx
-GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib --repo WillBooster/calc-ai-contrib --pr-numbers 123 456 --exclude-users "renovate[bot]" --ai-emails "bot@willbooster.com" "agent@willbooster.com"
+# Analyze by date range
+GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib --repo WillBooster/calc-ai-contrib --start-date 2024-01-01 --end-date 2024-01-31 --ai-emails "bot@willbooster.com"
 ```
 
 ## 📖 Usage Examples
 
 ```bash
-# Basic analysis
+# Analyze specific PRs
 GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -p 123 456 789
 
-# Multiple repositories
-GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo1 owner/repo2 -p 123 456
+# Analyze by date range
+GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -s 2024-01-01 -e 2024-01-31
 
-# With AI detection
+# Multiple repositories with date range
+GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo1 owner/repo2 -s 2024-01-01 -e 2024-01-31
+
+# With AI detection (includes default AI emails)
 GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -s 2024-01-01 -e 2024-01-31 --ai-emails "bot@company.com"
 
-# Advanced filtering
+# Advanced filtering with date range
 GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -s 2024-01-01 -e 2024-01-31 \
+  --exclude-files "*.md" "test/**" \
+  --exclude-users "dependabot"
+
+# Advanced filtering with specific PRs
+GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -p 123 456 789 \
   --exclude-files "*.md" "test/**" \
   --exclude-users "dependabot"
 ```
 
 ### Key Options
 
-| Option              | Description                                |
-| ------------------- | ------------------------------------------ |
-| `--repo` `-r`       | Repository(s) in `owner/repo` format       |
-| `--pr-numbers` `-p` | PR numbers to analyze (e.g., 123 456 789) |
-| `--ai-emails`       | Email patterns to identify AI contributors |
-| `--exclude-files`   | Glob patterns to exclude files             |
-| `--exclude-users`   | Usernames to exclude                       |
-| `--verbose` `-v`    | Show detailed progress                     |
+| Option              | Description                                                    |
+| ------------------- | -------------------------------------------------------------- |
+| `--repo` `-r`       | Repository(s) in `owner/repo` format                          |
+| `--pr-numbers` `-p` | PR numbers to analyze (e.g., 123 456 789)                     |
+| `--start-date` `-s` | Start date for analysis (YYYY-MM-DD format)                   |
+| `--end-date` `-e`   | End date for analysis (YYYY-MM-DD format)                     |
+| `--ai-emails`       | Additional AI emails (includes aider@aider.chat, noreply@anthropic.com by default) |
+| `--exclude-files`   | Glob patterns to exclude files                                 |
+| `--exclude-users`   | Usernames to exclude                                           |
+| `--verbose` `-v`    | Show detailed progress                                         |
+
+**Note:** You must provide either `--pr-numbers` OR both `--start-date` and `--end-date`, but not both.
 
 ## 📊 Sample Output
 
