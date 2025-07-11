@@ -50,7 +50,7 @@ async function main() {
       .option('ai-emails', {
         type: 'array',
         description:
-          'Additional email addresses to identify as AI contributors (includes aider@aider.chat and noreply@anthropic.com always)',
+          'Additional email addresses to identify as AI contributors (aider@aider.chat and noreply@anthropic.com are always included)',
       })
       .option('verbose', {
         alias: 'v',
