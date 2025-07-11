@@ -27,17 +27,15 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
   exclusionOptions: ExclusionOptions = {},
   verbose: boolean = false
 ): Promise<DateRangeAnalysisResult> {
-  const getPRNumbersForRepo = async (owner: string, repo: string, logger: Logger) => {
-    const prNumbers = await findPRsByDateRange(owner, repo, startDate, endDate, logger);
-    if (prNumbers.length > 0) {
-      logger.success(`Found ${prNumbers.length} PRs in the specified date range`);
-    }
-    return prNumbers;
-  };
-
   const { allPrNumbers, ...rest } = await analyzePullRequestsCore(
     repositories,
-    getPRNumbersForRepo,
+    async (owner: string, repo: string, logger: Logger) => {
+      const prNumbers = await findPRsByDateRange(owner, repo, startDate, endDate, logger);
+      if (prNumbers.length > 0) {
+        logger.success(`Found ${prNumbers.length} PRs in the specified date range`);
+      }
+      return prNumbers;
+    },
     exclusionOptions,
     verbose
   );
@@ -57,17 +55,15 @@ export async function analyzePullRequestsByNumbersMultiRepo(
   exclusionOptions: ExclusionOptions = {},
   verbose: boolean = false
 ): Promise<PRNumbersAnalysisResult> {
-  const getPRNumbersForRepo = async (owner: string, repo: string, logger: Logger) => {
-    const validPrNumbers = await validatePRsExist(owner, repo, prNumbers, logger);
-    if (validPrNumbers.length > 0) {
-      logger.success(`Found ${validPrNumbers.length} valid PRs`);
-    }
-    return validPrNumbers;
-  };
-
   const { allPrNumbers, ...rest } = await analyzePullRequestsCore(
     repositories,
-    getPRNumbersForRepo,
+    async (owner: string, repo: string, logger: Logger) => {
+      const validPrNumbers = await validatePRsExist(owner, repo, prNumbers, logger);
+      if (validPrNumbers.length > 0) {
+        logger.success(`Found ${validPrNumbers.length} valid PRs`);
+      }
+      return validPrNumbers;
+    },
     exclusionOptions,
     verbose
   );
