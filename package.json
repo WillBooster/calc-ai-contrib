@@ -6,9 +6,9 @@
   "license": "Apache-2.0",
   "author": "WillBooster Inc.",
   "type": "module",
-  "bin": "bin/index.js",
+  "bin": "bin/calc-ai-contrib.js",
   "files": [
-    "bin/index.js",
+    "bin/",
     "dist/"
   ],
   "scripts": {
