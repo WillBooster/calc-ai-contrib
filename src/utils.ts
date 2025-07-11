@@ -62,23 +62,3 @@ export function validatePRNumbers(prNumbers: string[]): void {
     }
   }
 }
-
-/**
- * Parse co-authors from commit message
- */
-export function parseCoAuthors(commitMessage: string): Array<{ name?: string; email?: string }> {
-  const coAuthorRegex = /^Co-authored-by:\s*(.+?)\s*<(.+?)>\s*$/gm;
-  const coAuthors: Array<{ name?: string; email?: string }> = [];
-
-  let match: RegExpExecArray | null;
-  // biome-ignore lint/suspicious/noAssignInExpressions: This is a common pattern for regex matching
-  while ((match = coAuthorRegex.exec(commitMessage)) !== null) {
-    const name = match[1]?.trim();
-    const email = match[2]?.trim();
-    if (name && email) {
-      coAuthors.push({ name, email });
-    }
-  }
-
-  return coAuthors;
-}

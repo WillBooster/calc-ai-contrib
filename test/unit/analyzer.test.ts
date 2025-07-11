@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { analyzePullRequestsByDateRangeMultiRepo, analyzePullRequestsByNumbersMultiRepo } from '../../src/analyzer.js';
+import { isPairProgrammingCommit, parseCoAuthors } from '../../src/contributions.js';
 
 describe('GitHub PR Analyzer', () => {
   test('analyze WillBooster/gen-pr PR #65 by diff (accurate per-line attribution)', async () => {
@@ -284,10 +285,6 @@ describe('GitHub PR Analyzer', () => {
   }, 120000);
 
   test('should handle pair programming commits correctly', async () => {
-    // This test would require a repository with actual pair programming commits
-    // For now, we'll test the utility functions
-    const { parseCoAuthors, isPairProgrammingCommit } = await import('../../src/utils.js');
-
     // Test co-author parsing
     const commitMessage = `Fix bug in authentication
 

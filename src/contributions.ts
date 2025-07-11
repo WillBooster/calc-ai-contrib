@@ -1,7 +1,6 @@
 import { shouldExcludeUser } from './exclusions.js';
 import type { Logger } from './logger.js';
 import type { ExclusionOptions, GitHubCommit, GitHubFile, UserContribution, UserStats } from './types.js';
-import { parseCoAuthors } from './utils.js';
 
 /**
  * Calculate contribution statistics for a group of users
@@ -118,85 +117,6 @@ export function processFileContributions(
 }
 
 /**
- * Distribute file contributions among commits, including co-authors
- */
-export function distributeFileContributions(commits: GitHubCommit[], file: GitHubFile): Map<string, UserStats> {
-  const contributions = new Map<string, UserStats>();
-
-  if (commits.length === 0) {
-    contributions.set('Unknown', { additions: file.additions, deletions: file.deletions });
-    return contributions;
-  }
-
-  const authorsMap = new Map<string, Pick<UserStats, 'name' | 'email'>>();
-
-  for (const commit of commits) {
-    // Main author
-    const authorLogin = commit.author?.login;
-    const author = authorLogin || commit.commit?.author?.name || 'Unknown';
-    const name = commit.commit?.author?.name || undefined;
-    const email = commit.commit?.author?.email || undefined;
-
-    if (!authorsMap.has(author)) {
-      authorsMap.set(author, { name, email });
-    }
-
-    // Co-authors from commit message
-    const commitMessage = commit.commit?.message || '';
-    const coAuthors = parseCoAuthors(commitMessage);
-
-    for (const coAuthor of coAuthors) {
-      const coAuthorKey = coAuthor.email || coAuthor.name || 'Unknown Co-author';
-      if (!authorsMap.has(coAuthorKey)) {
-        authorsMap.set(coAuthorKey, { name: coAuthor.name, email: coAuthor.email });
-      }
-    }
-  }
-
-  const authors = Array.from(authorsMap.keys());
-  const additionsPerAuthor = Math.floor(file.additions / authors.length);
-  const deletionsPerAuthor = Math.floor(file.deletions / authors.length);
-
-  for (let i = 0; i < authors.length; i++) {
-    const author = authors[i];
-    const authorInfo = authorsMap.get(author);
-    const isLast = i === authors.length - 1;
-
-    const additions = isLast ? file.additions - additionsPerAuthor * (authors.length - 1) : additionsPerAuthor;
-    const deletions = isLast ? file.deletions - deletionsPerAuthor * (authors.length - 1) : deletionsPerAuthor;
-
-    contributions.set(author, {
-      additions,
-      deletions,
-      name: authorInfo?.name,
-      email: authorInfo?.email,
-    });
-  }
-
-  return contributions;
-}
-
-/**
- * Determine if a commit represents pair programming (both AI and human contributors)
- */
-export function isPairProgrammingCommit(
-  authorEmail: string | undefined,
-  coAuthorEmails: string[],
-  aiEmails: Set<string>
-): boolean {
-  const allEmails = [authorEmail, ...coAuthorEmails].filter((email): email is string => Boolean(email));
-
-  if (allEmails.length <= 1) {
-    return false; // Single contributor, not pair programming
-  }
-
-  const hasAI = allEmails.some((email) => aiEmails.has(email));
-  const hasHuman = allEmails.some((email) => !aiEmails.has(email));
-
-  return hasAI && hasHuman;
-}
-
-/**
  * Distribute file contributions with pair programming tracking
  */
 export function distributeFileContributionsWithPairTracking(
@@ -285,4 +205,44 @@ export function distributeFileContributionsWithPairTracking(
     userContributions,
     pairContributions: { additions: pairAdditions, deletions: pairDeletions },
   };
+}
+
+/**
+ * Parse co-authors from commit message
+ */
+export function parseCoAuthors(commitMessage: string): Array<{ name?: string; email?: string }> {
+  const coAuthorRegex = /^Co-authored-by:\s*(.+?)\s*<(.+?)>\s*$/gm;
+  const coAuthors: Array<{ name?: string; email?: string }> = [];
+
+  let match: RegExpExecArray | null;
+  // biome-ignore lint/suspicious/noAssignInExpressions: This is a common pattern for regex matching
+  while ((match = coAuthorRegex.exec(commitMessage)) !== null) {
+    const name = match[1]?.trim();
+    const email = match[2]?.trim();
+    if (name && email) {
+      coAuthors.push({ name, email });
+    }
+  }
+
+  return coAuthors;
+}
+
+/**
+ * Determine if a commit represents pair programming (both AI and human contributors)
+ */
+export function isPairProgrammingCommit(
+  authorEmail: string | undefined,
+  coAuthorEmails: string[],
+  aiEmails: Set<string>
+): boolean {
+  const allEmails = [authorEmail, ...coAuthorEmails].filter((email): email is string => Boolean(email));
+
+  if (allEmails.length <= 1) {
+    return false; // Single contributor, not pair programming
+  }
+
+  const hasAI = allEmails.some((email) => aiEmails.has(email));
+  const hasHuman = allEmails.some((email) => !aiEmails.has(email));
+
+  return hasAI && hasHuman;
 }
