@@ -1,10 +1,11 @@
 import ansis from 'ansis';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import { analyzePullRequestsByDateRangeMultiRepo } from './analyzer.js';
+import { analyzePullRequestsByDateRangeMultiRepo, analyzePullRequestsByNumbersMultiRepo } from './analyzer.js';
 import { hasExclusionOptions } from './exclusions.js';
 import { formatAnalysisResult, logExclusionOptions } from './format.js';
-import { parseRepositories, validateDateRange, validateRepositoryFormat } from './utils.js';
+import type { PRNumbersAnalysisResult } from './types.js';
+import { parseRepositories, validateDateRange, validatePRNumbers, validateRepositoryFormat } from './utils.js';
 
 async function main() {
   try {
@@ -15,17 +16,20 @@ async function main() {
         description: 'GitHub repository in format "owner/repo". Multiple repositories can be specified.',
         demandOption: true,
       })
+      .option('pr-numbers', {
+        alias: 'p',
+        type: 'array',
+        description: 'PR numbers to analyze (e.g., --pr-numbers 123 456 789)',
+      })
       .option('start-date', {
         alias: 's',
         type: 'string',
-        description: 'Start date for PR search (ISO format: YYYY-MM-DD)',
-        demandOption: true,
+        description: 'Start date for analysis (YYYY-MM-DD format)',
       })
       .option('end-date', {
         alias: 'e',
         type: 'string',
-        description: 'End date for PR search (ISO format: YYYY-MM-DD)',
-        demandOption: true,
+        description: 'End date for analysis (YYYY-MM-DD format)',
       })
       .option('exclude-files', {
         type: 'array',
@@ -46,7 +50,8 @@ async function main() {
       })
       .option('ai-emails', {
         type: 'array',
-        description: 'Email addresses to identify as AI contributors for human vs AI breakdown',
+        description:
+          'Additional email addresses to identify as AI contributors (aider@aider.chat and noreply@anthropic.com are always included)',
       })
       .option('verbose', {
         alias: 'v',
@@ -57,36 +62,57 @@ async function main() {
       .check((argv) => {
         const repos = argv.repo as string[];
         validateRepositoryFormat(repos);
-        validateDateRange(argv['start-date'], argv['end-date']);
+
+        const hasPrNumbers = argv['pr-numbers'] && (argv['pr-numbers'] as string[]).length > 0;
+        const hasDateRange = argv['start-date'] && argv['end-date'];
+
+        if (!hasPrNumbers && !hasDateRange) {
+          throw new Error('Either --pr-numbers or both --start-date and --end-date must be provided');
+        }
+
+        if (hasPrNumbers && hasDateRange) {
+          throw new Error('Cannot use both --pr-numbers and date range options at the same time');
+        }
+
+        if (hasPrNumbers) {
+          validatePRNumbers(argv['pr-numbers'] as string[]);
+        }
+
+        if (hasDateRange) {
+          const startDate = argv['start-date'] as string;
+          const endDate = argv['end-date'] as string;
+
+          if (!startDate || !endDate) {
+            throw new Error('Both --start-date and --end-date are required for date range analysis');
+          }
+
+          validateDateRange(startDate, endDate);
+        }
+
         return true;
       })
       .help()
       .alias('help', 'h')
-      .example(
-        '$0 --repo WillBooster/gen-pr --start-date 2024-01-01 --end-date 2024-01-31',
-        'Analyze all PRs from single repository in January 2024'
-      )
-      .example('$0 -r WillBooster/gen-pr -s 2024-01-01 -e 2024-01-31', 'Same as above using short options')
+      .example('$0 --repo WillBooster/gen-pr --pr-numbers 123 456 789', 'Analyze specific PRs from single repository')
+      .example('$0 -r WillBooster/gen-pr -p 123 456', 'Same as above using short options')
+      .example('$0 -r WillBooster/gen-pr -s 2024-01-01 -e 2024-01-31', 'Analyze PRs by date range')
       .example(
         '$0 -r WillBooster/gen-pr WillBooster/calc-ai-contrib -s 2024-01-01 -e 2024-01-31',
-        'Analyze PRs from multiple repositories in January 2024'
+        'Analyze date range from multiple repositories'
       )
       .example(
-        '$0 -r WillBooster/gen-pr -s 2024-01-01 -e 2024-01-31 --exclude-files "*.md" "test/**" --exclude-users "bot"',
+        '$0 -r WillBooster/gen-pr -p 123 456 --exclude-files "*.md" "test/**" --exclude-users "bot"',
         'Analyze PRs excluding markdown files, test directory, and bot user'
       )
       .example(
-        '$0 -r WillBooster/gen-pr -s 2024-01-01 -e 2024-01-31 --exclude-emails "bot@example.com" --exclude-commit-messages "auto-generated"',
-        'Analyze PRs excluding specific email and commits with "auto-generated" text'
-      )
-      .example(
-        '$0 -r WillBooster/gen-pr -s 2024-01-01 -e 2024-01-31 --ai-emails "bot@willbooster.com" "ai@example.com"',
-        'Analyze PRs with human vs AI breakdown, identifying specified emails as AI'
+        '$0 -r WillBooster/gen-pr -s 2024-01-01 -e 2024-01-31 --ai-emails "bot@willbooster.com"',
+        'Analyze date range with human vs AI breakdown (includes default AI emails plus specified ones)'
       )
       .parse();
 
     const {
       repo: repos,
+      prNumbers,
       startDate,
       endDate,
       excludeFiles,
@@ -101,12 +127,18 @@ async function main() {
     const repositories = parseRepositories(repos as string[]);
 
     // Build exclusion options
+    const aiEmailsSet = new Set<string>([
+      ...(aiEmails?.map((e) => String(e)) ?? []),
+      'aider@aider.chat',
+      'noreply@anthropic.com',
+    ]);
+
     const exclusionOptions = {
       excludeFiles: excludeFiles as string[] | undefined,
       excludeUsers: excludeUsers as string[] | undefined,
       excludeEmails: excludeEmails as string[] | undefined,
       excludeCommitMessages: excludeCommitMessages as string[] | undefined,
-      aiEmails: aiEmails as string[] | undefined,
+      aiEmails: aiEmailsSet,
     };
 
     // Log exclusion options if any are provided and verbose mode is enabled
@@ -114,18 +146,21 @@ async function main() {
       logExclusionOptions(exclusionOptions, ansis);
     }
 
-    console.log(
-      ansis.blue(`Analyzing PRs from ${repositories.length} repositories between ${startDate} and ${endDate}...`)
-    );
     console.log(ansis.yellow('Note: Set GH_TOKEN environment variable for higher rate limits.'));
 
-    const result = await analyzePullRequestsByDateRangeMultiRepo(
-      repositories,
-      startDate,
-      endDate,
-      exclusionOptions,
-      verbose
-    );
+    let result: PRNumbersAnalysisResult;
+    if (prNumbers && (prNumbers as string[]).length > 0) {
+      // PR numbers mode
+      const prNumbersArray = (prNumbers as string[]).map(Number);
+      console.log(ansis.blue(`Analyzing PRs ${prNumbersArray.join(', ')} from ${repositories.length} repositories...`));
+      result = await analyzePullRequestsByNumbersMultiRepo(repositories, prNumbersArray, exclusionOptions, verbose);
+    } else {
+      // Date range mode
+      const start = startDate as string;
+      const end = endDate as string;
+      console.log(ansis.blue(`Analyzing PRs from ${start} to ${end} across ${repositories.length} repositories...`));
+      result = await analyzePullRequestsByDateRangeMultiRepo(repositories, start, end, exclusionOptions, verbose);
+    }
     console.log(`\n${formatAnalysisResult(result, exclusionOptions)}`);
   } catch (error) {
     console.error(ansis.red('Error analyzing PR:'), error);

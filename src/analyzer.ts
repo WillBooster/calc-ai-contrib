@@ -3,7 +3,13 @@ import { Octokit } from 'octokit';
 import { calculateContributionStats, convertToUserContributions, processFileContributions } from './contributions.js';
 import { filterCommits, filterFiles } from './exclusions.js';
 import { Logger } from './logger.js';
-import type { DateRangeAnalysisResult, ExclusionOptions, GitHubCommit, UserStats } from './types.js';
+import type {
+  DateRangeAnalysisResult,
+  ExclusionOptions,
+  GitHubCommit,
+  PRNumbersAnalysisResult,
+  UserStats,
+} from './types.js';
 import type { Repository } from './utils.js';
 
 config();
@@ -19,6 +25,43 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
   exclusionOptions: ExclusionOptions = {},
   verbose: boolean = false
 ): Promise<DateRangeAnalysisResult> {
+  const result = await analyzePullRequestsCore(
+    repositories,
+    async (owner: string, repo: string, logger: Logger) => {
+      const prNumbers = await findPRsByDateRange(owner, repo, startDate, endDate, logger);
+      if (prNumbers.length > 0) {
+        logger.success(`Found ${prNumbers.length} PRs in the specified date range`);
+      }
+      return prNumbers;
+    },
+    exclusionOptions,
+    verbose
+  );
+  return {
+    ...result,
+    startDate,
+    endDate,
+  };
+}
+
+export async function analyzePullRequestsByNumbersMultiRepo(
+  repositories: Repository[],
+  prNumbers: number[],
+  exclusionOptions: ExclusionOptions = {},
+  verbose: boolean = false
+): Promise<PRNumbersAnalysisResult> {
+  return await analyzePullRequestsCore(repositories, async () => prNumbers, exclusionOptions, verbose);
+}
+
+/**
+ * Core analysis function that processes PRs from multiple repositories
+ */
+async function analyzePullRequestsCore(
+  repositories: Repository[],
+  getPRNumbersForRepo: (owner: string, repo: string, logger: Logger) => Promise<number[]>,
+  exclusionOptions: ExclusionOptions = {},
+  verbose: boolean = false
+): Promise<PRNumbersAnalysisResult> {
   const logger = new Logger(verbose);
   logger.info(`Analyzing ${repositories.length} repositories...`);
 
@@ -33,15 +76,15 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
     logger.repository(`\nProcessing repository: ${owner}/${repo}`);
 
     try {
-      // Find PRs in date range for this repository
-      const prNumbers = await findPRsByDateRange(owner, repo, startDate, endDate, logger);
+      // Get PR numbers for this repository using the provided strategy
+      const prNumbers = await getPRNumbersForRepo(owner, repo, logger);
 
       if (prNumbers.length === 0) {
-        logger.info(`No PRs found in the specified date range for ${owner}/${repo}`);
+        logger.info(`No PRs found for ${owner}/${repo}`);
         continue;
       }
 
-      logger.success(`Found ${prNumbers.length} PRs in the specified date range`);
+      logger.success(`Found ${prNumbers.length} PRs`);
       allPrNumbers.push(...prNumbers);
 
       logger.progress(`Analyzing ${prNumbers.length} PRs...`);
@@ -104,9 +147,9 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
   const userContributions = convertToUserContributions(aggregatedUserStats, totalEditLines);
 
   // Calculate human vs AI contributions (excluding pair programming)
-  const aiEmails = exclusionOptions.aiEmails || [];
-  const humanContribs = userContributions.filter((contrib) => !aiEmails.some((aiEmail) => contrib.email === aiEmail));
-  const aiContribs = userContributions.filter((contrib) => aiEmails.some((aiEmail) => contrib.email === aiEmail));
+  const aiEmails = exclusionOptions.aiEmails || new Set<string>();
+  const humanContribs = userContributions.filter((contrib) => !aiEmails.has(contrib.email || ''));
+  const aiContribs = userContributions.filter((contrib) => aiEmails.has(contrib.email || ''));
 
   const humanContributions = calculateContributionStats(humanContribs, totalEditLines);
   const aiContributions = calculateContributionStats(aiContribs, totalEditLines);
@@ -120,11 +163,9 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
     peopleCount: 0, // Pair programming doesn't count as individual people
   };
 
+  const sortedPrNumbers = allPrNumbers.sort((a, b) => a - b);
+
   return {
-    startDate,
-    endDate,
-    totalPRs: allPrNumbers.length,
-    prNumbers: allPrNumbers.sort((a, b) => a - b),
     totalAdditions: totalAdditions + totalPairAdditions,
     totalDeletions: totalDeletions + totalPairDeletions,
     totalEditLines,
@@ -132,6 +173,8 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
     humanContributions,
     aiContributions,
     pairContributions,
+    totalPRs: sortedPrNumbers.length,
+    prNumbers: sortedPrNumbers,
   };
 }
 

@@ -1,5 +1,11 @@
 import type ansis from 'ansis';
-import type { BaseAnalysisResult, DateRangeAnalysisResult, ExclusionOptions, PRAnalysisResult } from './types.js';
+import type {
+  BaseAnalysisResult,
+  DateRangeAnalysisResult,
+  ExclusionOptions,
+  PRAnalysisResult,
+  PRNumbersAnalysisResult,
+} from './types.js';
 
 /**
  * Format user information string
@@ -35,17 +41,17 @@ export function logExclusionOptions(options: ExclusionOptions, ansiColors: typeo
   if (options.excludeCommitMessages?.length) {
     console.log(ansiColors.dim(`  Exclude commit messages containing: ${options.excludeCommitMessages.join(', ')}`));
   }
-  if (options.aiEmails?.length) {
-    console.log(ansiColors.dim(`  AI emails: ${options.aiEmails.join(', ')}`));
+  if (options.aiEmails?.size) {
+    console.log(ansiColors.dim(`  AI emails: ${Array.from(options.aiEmails).join(', ')}`));
   }
   console.log('');
 }
 
 export function formatAnalysisResult(
-  result: PRAnalysisResult | DateRangeAnalysisResult,
+  result: PRAnalysisResult | DateRangeAnalysisResult | PRNumbersAnalysisResult,
   exclusionOptions: ExclusionOptions = {}
 ): string {
-  const hasAIEmails = Boolean(exclusionOptions.aiEmails && exclusionOptions.aiEmails.length > 0);
+  const hasAIEmails = Boolean(exclusionOptions.aiEmails && exclusionOptions.aiEmails.size > 0);
 
   const lines: string[] = [
     ...formatHeader(result, hasAIEmails),
@@ -56,7 +62,10 @@ export function formatAnalysisResult(
   return lines.join('\n');
 }
 
-function formatHeader(result: PRAnalysisResult | DateRangeAnalysisResult, hasAIEmails: boolean): string[] {
+function formatHeader(
+  result: PRAnalysisResult | DateRangeAnalysisResult | PRNumbersAnalysisResult,
+  hasAIEmails: boolean
+): string[] {
   const lines: string[] = [];
 
   lines.push('╔══════════════════════════════════════════════════╗');
@@ -66,11 +75,16 @@ function formatHeader(result: PRAnalysisResult | DateRangeAnalysisResult, hasAIE
   if ('prNumber' in result) {
     // PR Analysis Result
     lines.push(`║ ${`PR #${result.prNumber.toString()}`.padEnd(48)} ║`);
-  } else {
+  } else if ('startDate' in result) {
     // Date Range Analysis Result
     lines.push(
       `║ ${`Date: ${result.startDate} to ${result.endDate} (PRs: ${result.totalPRs.toString()})`.padEnd(48)} ║`
     );
+  } else {
+    // PR Numbers Analysis Result
+    const prNumbersStr = result.prNumbers.join(', ');
+    const displayStr = prNumbersStr.length > 40 ? `${prNumbersStr.substring(0, 37)}...` : prNumbersStr;
+    lines.push(`║ ${`PRs: ${displayStr} (Total: ${result.totalPRs.toString()})`.padEnd(48)} ║`);
   }
   lines.push(
     `║ ${`Total Edits: ${result.totalEditLines.toLocaleString()} (+${result.totalAdditions.toLocaleString()} / -${result.totalDeletions.toLocaleString()})`.padEnd(48)} ║`
@@ -133,7 +147,9 @@ function formatDetailedBreakdown(result: BaseAnalysisResult, hasAIEmails: boolea
   return lines;
 }
 
-function formatIndividualContributions(result: PRAnalysisResult | DateRangeAnalysisResult): string[] {
+function formatIndividualContributions(
+  result: PRAnalysisResult | DateRangeAnalysisResult | PRNumbersAnalysisResult
+): string[] {
   const lines: string[] = [];
 
   lines.push('👤 INDIVIDUAL CONTRIBUTIONS');

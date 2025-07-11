@@ -26,16 +26,19 @@ GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib --repo WillBooster/calc-a
 ## 📖 Usage Examples
 
 ```bash
-# Basic analysis
+# Analyze specific PRs
+GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -p 123 456 789
+
+# Analyze by date range
 GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -s 2024-01-01 -e 2024-01-31
 
-# Multiple repositories
+# Multiple repositories with date range
 GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo1 owner/repo2 -s 2024-01-01 -e 2024-01-31
 
-# With AI detection
+# With AI detection (includes default AI emails)
 GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -s 2024-01-01 -e 2024-01-31 --ai-emails "bot@company.com"
 
-# Advanced filtering
+# Advanced filtering with date range
 GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -s 2024-01-01 -e 2024-01-31 \
   --exclude-files "*.md" "test/**" \
   --exclude-users "dependabot"
@@ -43,15 +46,18 @@ GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -s 2024-01-
 
 ### Key Options
 
-| Option              | Description                                |
-| ------------------- | ------------------------------------------ |
-| `--repo` `-r`       | Repository(s) in `owner/repo` format       |
-| `--start-date` `-s` | Start date (YYYY-MM-DD)                    |
-| `--end-date` `-e`   | End date (YYYY-MM-DD)                      |
-| `--ai-emails`       | Email patterns to identify AI contributors |
-| `--exclude-files`   | Glob patterns to exclude files             |
-| `--exclude-users`   | Usernames to exclude                       |
-| `--verbose` `-v`    | Show detailed progress                     |
+| Option              | Description                                                                        |
+| ------------------- | ---------------------------------------------------------------------------------- |
+| `--repo` `-r`       | Repository(s) in `owner/repo` format                                               |
+| `--pr-numbers` `-p` | PR numbers to analyze (e.g., 123 456 789)                                          |
+| `--start-date` `-s` | Start date for analysis (YYYY-MM-DD format)                                        |
+| `--end-date` `-e`   | End date for analysis (YYYY-MM-DD format)                                          |
+| `--ai-emails`       | Additional AI emails (includes aider@aider.chat, noreply@anthropic.com by default) |
+| `--exclude-files`   | Glob patterns to exclude files                                                     |
+| `--exclude-users`   | Usernames to exclude                                                               |
+| `--verbose` `-v`    | Show detailed progress                                                             |
+
+**Note:** You must provide either `--pr-numbers` OR both `--start-date` and `--end-date`, but not both.
 
 ## 📊 Sample Output
 

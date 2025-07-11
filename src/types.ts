@@ -5,7 +5,7 @@ export interface ExclusionOptions {
   excludeUsers?: string[];
   excludeEmails?: string[];
   excludeCommitMessages?: string[];
-  aiEmails?: string[];
+  aiEmails?: Set<string>;
 }
 
 export interface UserStats {
@@ -60,6 +60,11 @@ export interface PRAnalysisResult extends BaseAnalysisResult {
 export interface DateRangeAnalysisResult extends BaseAnalysisResult {
   startDate: string;
   endDate: string;
+  totalPRs: number;
+  prNumbers: number[];
+}
+
+export interface PRNumbersAnalysisResult extends BaseAnalysisResult {
   totalPRs: number;
   prNumbers: number[];
 }

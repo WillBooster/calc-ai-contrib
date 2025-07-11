@@ -1,5 +1,11 @@
 import { formatAnalysisResult } from '../src/format.js';
-import type { DateRangeAnalysisResult, ExclusionOptions, PRAnalysisResult, UserContribution } from '../src/types.js';
+import type {
+  DateRangeAnalysisResult,
+  ExclusionOptions,
+  PRAnalysisResult,
+  PRNumbersAnalysisResult,
+  UserContribution,
+} from '../src/types.js';
 
 const userContributions: UserContribution[] = [
   {
@@ -52,13 +58,13 @@ const multipleUserContributions: UserContribution[] = [
   },
 ];
 
-function calculateContributions(userContributions: UserContribution[], aiEmails: string[] = []) {
+function calculateContributions(userContributions: UserContribution[], aiEmails: Set<string> = new Set()) {
   const totalAdditions = userContributions.reduce((sum, contrib) => sum + contrib.additions, 0);
   const totalDeletions = userContributions.reduce((sum, contrib) => sum + contrib.deletions, 0);
   const totalEditLines = totalAdditions + totalDeletions;
 
-  const humanContribs = userContributions.filter((contrib) => !aiEmails.includes(contrib.email || ''));
-  const aiContribs = userContributions.filter((contrib) => aiEmails.includes(contrib.email || ''));
+  const humanContribs = userContributions.filter((contrib) => !aiEmails.has(contrib.email || ''));
+  const aiContribs = userContributions.filter((contrib) => aiEmails.has(contrib.email || ''));
 
   const humanTotalAdditions = humanContribs.reduce((sum, contrib) => sum + contrib.additions, 0);
   const humanTotalDeletions = humanContribs.reduce((sum, contrib) => sum + contrib.deletions, 0);
@@ -99,7 +105,10 @@ function calculateContributions(userContributions: UserContribution[], aiEmails:
   };
 }
 
-function createPRAnalysisResult(userContributions: UserContribution[], aiEmails: string[] = []): PRAnalysisResult {
+function createPRAnalysisResult(
+  userContributions: UserContribution[],
+  aiEmails: Set<string> = new Set()
+): PRAnalysisResult {
   const contributions = calculateContributions(userContributions, aiEmails);
   return {
     prNumber: 123,
@@ -110,7 +119,7 @@ function createPRAnalysisResult(userContributions: UserContribution[], aiEmails:
 
 function createDateRangeAnalysisResult(
   userContributions: UserContribution[],
-  aiEmails: string[] = []
+  aiEmails: Set<string> = new Set()
 ): DateRangeAnalysisResult {
   const contributions = calculateContributions(userContributions, aiEmails);
   return {
@@ -118,6 +127,19 @@ function createDateRangeAnalysisResult(
     endDate: '2024-01-31',
     totalPRs: 5,
     prNumbers: [101, 102, 103, 104, 105],
+    userContributions,
+    ...contributions,
+  };
+}
+
+function createPRNumbersAnalysisResult(
+  userContributions: UserContribution[],
+  aiEmails: Set<string> = new Set()
+): PRNumbersAnalysisResult {
+  const contributions = calculateContributions(userContributions, aiEmails);
+  return {
+    totalPRs: 3,
+    prNumbers: [123, 456, 789],
     userContributions,
     ...contributions,
   };
@@ -134,7 +156,7 @@ function runTests() {
 
   console.log('\n📋 TEST 2: PR Analysis (With AI emails)');
   console.log('-'.repeat(50));
-  const aiEmails = ['bot@willbooster.com', 'ai@example.com'];
+  const aiEmails = new Set(['bot@willbooster.com', 'ai@example.com']);
   const prResult2 = createPRAnalysisResult(userContributions, aiEmails);
   console.log(formatAnalysisResult(prResult2, { aiEmails }));
 
@@ -145,9 +167,9 @@ function runTests() {
 
   console.log('\n📋 TEST 4: Date Range Analysis (With AI emails)');
   console.log('-'.repeat(50));
-  const dateRangeResult2 = createDateRangeAnalysisResult(multipleUserContributions, ['ai@example.com']);
+  const dateRangeResult2 = createDateRangeAnalysisResult(multipleUserContributions, new Set(['ai@example.com']));
   const exclusionOptions: ExclusionOptions = {
-    aiEmails: ['ai@example.com'],
+    aiEmails: new Set(['ai@example.com']),
     excludeFiles: ['*.md', 'test/**'],
     excludeUsers: ['bot-user'],
   };
@@ -162,6 +184,16 @@ function runTests() {
   console.log('-'.repeat(50));
   const emptyDateRangeResult = createDateRangeAnalysisResult([]);
   console.log(formatAnalysisResult(emptyDateRangeResult, {}));
+
+  console.log('\n📋 TEST 7: PR Numbers Analysis (Basic)');
+  console.log('-'.repeat(50));
+  const prNumbersResult1 = createPRNumbersAnalysisResult(multipleUserContributions);
+  console.log(formatAnalysisResult(prNumbersResult1, {}));
+
+  console.log('\n📋 TEST 8: PR Numbers Analysis (With AI emails)');
+  console.log('-'.repeat(50));
+  const prNumbersResult2 = createPRNumbersAnalysisResult(multipleUserContributions, new Set(['ai@example.com']));
+  console.log(formatAnalysisResult(prNumbersResult2, exclusionOptions));
 
   console.log(`\n${'='.repeat(80)}`);
   console.log('✅ All tests completed successfully!');

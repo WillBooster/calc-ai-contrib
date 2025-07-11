@@ -11,7 +11,7 @@ export function hasExclusionOptions(options: ExclusionOptions): boolean {
       options.excludeUsers?.length ||
       options.excludeEmails?.length ||
       options.excludeCommitMessages?.length ||
-      options.aiEmails?.length
+      options.aiEmails?.size
   );
 }
 
