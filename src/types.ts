@@ -64,5 +64,10 @@ export interface DateRangeAnalysisResult extends BaseAnalysisResult {
   prNumbers: number[];
 }
 
+export interface PRNumbersAnalysisResult extends BaseAnalysisResult {
+  totalPRs: number;
+  prNumbers: number[];
+}
+
 export type GitHubCommit = Awaited<ReturnType<Octokit['rest']['pulls']['listCommits']>>['data'][0];
 export type GitHubFile = Awaited<ReturnType<Octokit['rest']['pulls']['listFiles']>>['data'][0];

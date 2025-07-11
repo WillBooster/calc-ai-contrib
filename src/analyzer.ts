@@ -3,7 +3,13 @@ import { Octokit } from 'octokit';
 import { calculateContributionStats, convertToUserContributions, processFileContributions } from './contributions.js';
 import { filterCommits, filterFiles } from './exclusions.js';
 import { Logger } from './logger.js';
-import type { DateRangeAnalysisResult, ExclusionOptions, GitHubCommit, UserStats } from './types.js';
+import type {
+  DateRangeAnalysisResult,
+  ExclusionOptions,
+  GitHubCommit,
+  PRNumbersAnalysisResult,
+  UserStats,
+} from './types.js';
 import type { Repository } from './utils.js';
 
 config();
@@ -217,4 +223,145 @@ function showProgressIndicator(verbose: boolean, prCount: number): void {
   if (!verbose && prCount > 0) {
     console.log(''); // Add newline after dots
   }
+}
+
+export async function analyzePullRequestsByNumbersMultiRepo(
+  repositories: Repository[],
+  prNumbers: number[],
+  exclusionOptions: ExclusionOptions = {},
+  verbose: boolean = false
+): Promise<PRNumbersAnalysisResult> {
+  const logger = new Logger(verbose);
+  logger.info(`Analyzing ${repositories.length} repositories...`);
+
+  let totalAdditions = 0;
+  let totalDeletions = 0;
+  let totalPairAdditions = 0;
+  let totalPairDeletions = 0;
+  const aggregatedUserStats = new Map<string, UserStats>();
+  const allPrNumbers: number[] = [];
+
+  for (const { owner, repo } of repositories) {
+    logger.repository(`\nProcessing repository: ${owner}/${repo}`);
+
+    try {
+      // Validate that PRs exist in this repository
+      const validPrNumbers = await validatePRsExist(owner, repo, prNumbers, logger);
+
+      if (validPrNumbers.length === 0) {
+        logger.info(`No valid PRs found in ${owner}/${repo}`);
+        continue;
+      }
+
+      logger.success(`Found ${validPrNumbers.length} valid PRs`);
+      allPrNumbers.push(...validPrNumbers);
+
+      logger.progress(`Analyzing ${validPrNumbers.length} PRs...`);
+      for (let i = 0; i < validPrNumbers.length; i++) {
+        const prNumber = validPrNumbers[i];
+        logger.log(`\n[${i + 1}/${validPrNumbers.length}] Analyzing PR #${prNumber}...`);
+
+        try {
+          const filesResponse = await octokit.rest.pulls.listFiles({
+            owner,
+            repo,
+            pull_number: prNumber,
+          });
+
+          const files = filesResponse.data;
+
+          logger.log('Fetching PR commits...');
+          const allCommits = await getPRCommits(owner, repo, prNumber, logger);
+          logger.log(`Found ${allCommits.length} commits in PR`);
+          const filteredCommits = filterCommits(allCommits, exclusionOptions, logger);
+          const filteredFiles = filterFiles(files, exclusionOptions, logger);
+          for (const file of filteredFiles) {
+            logger.log(`Processing file: ${file.filename} (+${file.additions}/-${file.deletions})`);
+
+            const { additionsIncluded, deletionsIncluded, pairAdditions, pairDeletions } = processFileContributions(
+              file,
+              filteredCommits,
+              aggregatedUserStats,
+              exclusionOptions,
+              logger
+            );
+
+            totalAdditions += additionsIncluded;
+            totalDeletions += deletionsIncluded;
+            totalPairAdditions += pairAdditions;
+            totalPairDeletions += pairDeletions;
+          }
+        } catch (error) {
+          logger.error(`Error analyzing PR #${prNumber}:`, error);
+        }
+
+        if (!logger.verbose) {
+          process.stdout.write('.');
+        }
+      }
+
+      // Add newline after processing all PRs in this repository
+      showProgressIndicator(logger.verbose, validPrNumbers.length);
+    } catch (error) {
+      logger.error(`Error analyzing repository ${owner}/${repo}:`, error);
+      // Continue with other repositories
+    }
+  }
+
+  // Calculate final statistics
+  const totalPairEditLines = totalPairAdditions + totalPairDeletions;
+  const totalEditLines = totalAdditions + totalDeletions + totalPairEditLines;
+
+  // Convert aggregated stats to user contributions
+  const userContributions = convertToUserContributions(aggregatedUserStats, totalEditLines);
+
+  // Calculate human vs AI contributions (excluding pair programming)
+  const aiEmails = exclusionOptions.aiEmails || [];
+  const humanContribs = userContributions.filter((contrib) => !aiEmails.some((aiEmail) => contrib.email === aiEmail));
+  const aiContribs = userContributions.filter((contrib) => aiEmails.some((aiEmail) => contrib.email === aiEmail));
+
+  const humanContributions = calculateContributionStats(humanContribs, totalEditLines);
+  const aiContributions = calculateContributionStats(aiContribs, totalEditLines);
+
+  // Calculate pair programming contributions
+  const pairContributions = {
+    totalAdditions: totalPairAdditions,
+    totalDeletions: totalPairDeletions,
+    totalEditLines: totalPairEditLines,
+    percentage: totalEditLines > 0 ? Math.round((totalPairEditLines / totalEditLines) * 100) : 0,
+    peopleCount: 0, // Pair programming doesn't count as individual people
+  };
+
+  return {
+    totalPRs: allPrNumbers.length,
+    prNumbers: allPrNumbers.sort((a, b) => a - b),
+    totalAdditions: totalAdditions + totalPairAdditions,
+    totalDeletions: totalDeletions + totalPairDeletions,
+    totalEditLines,
+    userContributions,
+    humanContributions,
+    aiContributions,
+    pairContributions,
+  };
+}
+
+async function validatePRsExist(owner: string, repo: string, prNumbers: number[], logger: Logger): Promise<number[]> {
+  const validPrNumbers: number[] = [];
+
+  for (const prNumber of prNumbers) {
+    try {
+      logger.log(`Checking if PR #${prNumber} exists...`);
+      await octokit.rest.pulls.get({
+        owner,
+        repo,
+        pull_number: prNumber,
+      });
+      validPrNumbers.push(prNumber);
+      logger.log(`PR #${prNumber} exists`);
+    } catch (error) {
+      logger.error(`PR #${prNumber} not found in ${owner}/${repo}:`, error);
+    }
+  }
+
+  return validPrNumbers;
 }

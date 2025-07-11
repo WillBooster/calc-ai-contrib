@@ -1,5 +1,11 @@
 import { formatAnalysisResult } from '../src/format.js';
-import type { DateRangeAnalysisResult, ExclusionOptions, PRAnalysisResult, UserContribution } from '../src/types.js';
+import type {
+  DateRangeAnalysisResult,
+  ExclusionOptions,
+  PRAnalysisResult,
+  PRNumbersAnalysisResult,
+  UserContribution,
+} from '../src/types.js';
 
 const userContributions: UserContribution[] = [
   {
@@ -123,6 +129,19 @@ function createDateRangeAnalysisResult(
   };
 }
 
+function createPRNumbersAnalysisResult(
+  userContributions: UserContribution[],
+  aiEmails: string[] = []
+): PRNumbersAnalysisResult {
+  const contributions = calculateContributions(userContributions, aiEmails);
+  return {
+    totalPRs: 3,
+    prNumbers: [123, 456, 789],
+    userContributions,
+    ...contributions,
+  };
+}
+
 function runTests() {
   console.log('🧪 Testing formatAnalysisResult\n');
   console.log('='.repeat(80));
@@ -162,6 +181,16 @@ function runTests() {
   console.log('-'.repeat(50));
   const emptyDateRangeResult = createDateRangeAnalysisResult([]);
   console.log(formatAnalysisResult(emptyDateRangeResult, {}));
+
+  console.log('\n📋 TEST 7: PR Numbers Analysis (Basic)');
+  console.log('-'.repeat(50));
+  const prNumbersResult1 = createPRNumbersAnalysisResult(multipleUserContributions);
+  console.log(formatAnalysisResult(prNumbersResult1, {}));
+
+  console.log('\n📋 TEST 8: PR Numbers Analysis (With AI emails)');
+  console.log('-'.repeat(50));
+  const prNumbersResult2 = createPRNumbersAnalysisResult(multipleUserContributions, ['ai@example.com']);
+  console.log(formatAnalysisResult(prNumbersResult2, exclusionOptions));
 
   console.log(`\n${'='.repeat(80)}`);
   console.log('✅ All tests completed successfully!');

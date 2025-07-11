@@ -48,6 +48,22 @@ export function validateDateRange(startDate: string, endDate: string): void {
 }
 
 /**
+ * Validate PR numbers format
+ */
+export function validatePRNumbers(prNumbers: string[]): void {
+  if (!prNumbers || prNumbers.length === 0) {
+    throw new Error('At least one PR number must be specified');
+  }
+
+  for (const prNumber of prNumbers) {
+    const num = Number(prNumber);
+    if (Number.isNaN(num) || num <= 0 || !Number.isInteger(num)) {
+      throw new Error(`Invalid PR number: "${prNumber}". PR numbers must be positive integers`);
+    }
+  }
+}
+
+/**
  * Parse co-authors from commit message
  */
 export function parseCoAuthors(commitMessage: string): Array<{ name?: string; email?: string }> {

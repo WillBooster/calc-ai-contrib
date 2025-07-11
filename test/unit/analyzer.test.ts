@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { analyzePullRequestsByDateRangeMultiRepo } from '../../src/analyzer.js';
+import { analyzePullRequestsByDateRangeMultiRepo, analyzePullRequestsByNumbersMultiRepo } from '../../src/analyzer.js';
 
 describe('GitHub PR Analyzer', () => {
   test('analyze WillBooster/gen-pr PR #65 by diff (accurate per-line attribution)', async () => {
@@ -384,5 +384,19 @@ Co-authored-by: AI Assistant <ai@willbooster.com>`;
     expect(resultWithoutAI.pairContributions.totalEditLines).toBe(0);
     expect(resultWithoutAI.pairContributions.percentage).toBe(0);
     expect(resultWithoutAI.pairContributions.peopleCount).toBe(0);
+  }, 60000);
+
+  test('analyze PRs by numbers (basic functionality)', async () => {
+    const repositories = [{ owner: 'WillBooster', repo: 'gen-pr' }];
+    const prNumbers = [55, 56, 57];
+
+    const result = await analyzePullRequestsByNumbersMultiRepo(repositories, prNumbers);
+
+    expect(result.totalPRs).toBe(3);
+    expect(result.prNumbers).toEqual([55, 56, 57]);
+    expect(result.totalAdditions).toBeGreaterThan(0);
+    expect(result.totalDeletions).toBeGreaterThan(0);
+    expect(result.totalEditLines).toBeGreaterThan(0);
+    expect(result.userContributions.length).toBeGreaterThan(0);
   }, 60000);
 });

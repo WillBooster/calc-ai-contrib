@@ -17,20 +17,20 @@
 
 ```bash
 # npx
-GH_TOKEN=[your_github_token_here] npx --yes calc-ai-contrib --repo WillBooster/calc-ai-contrib --start-date 2025-07-10 --end-date 2025-07-10 --exclude-users "renovate[bot]" --ai-emails "bot@willbooster.com" "agent@willbooster.com"
+GH_TOKEN=[your_github_token_here] npx --yes calc-ai-contrib --repo WillBooster/calc-ai-contrib --pr-numbers 123 456 --exclude-users "renovate[bot]" --ai-emails "bot@willbooster.com" "agent@willbooster.com"
 
 # bunx
-GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib --repo WillBooster/calc-ai-contrib --start-date 2025-07-10 --end-date 2025-07-10 --exclude-users "renovate[bot]" --ai-emails "bot@willbooster.com" "agent@willbooster.com"
+GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib --repo WillBooster/calc-ai-contrib --pr-numbers 123 456 --exclude-users "renovate[bot]" --ai-emails "bot@willbooster.com" "agent@willbooster.com"
 ```
 
 ## 📖 Usage Examples
 
 ```bash
 # Basic analysis
-GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -s 2024-01-01 -e 2024-01-31
+GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -p 123 456 789
 
 # Multiple repositories
-GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo1 owner/repo2 -s 2024-01-01 -e 2024-01-31
+GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo1 owner/repo2 -p 123 456
 
 # With AI detection
 GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -s 2024-01-01 -e 2024-01-31 --ai-emails "bot@company.com"
@@ -46,8 +46,7 @@ GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -s 2024-01-
 | Option              | Description                                |
 | ------------------- | ------------------------------------------ |
 | `--repo` `-r`       | Repository(s) in `owner/repo` format       |
-| `--start-date` `-s` | Start date (YYYY-MM-DD)                    |
-| `--end-date` `-e`   | End date (YYYY-MM-DD)                      |
+| `--pr-numbers` `-p` | PR numbers to analyze (e.g., 123 456 789) |
 | `--ai-emails`       | Email patterns to identify AI contributors |
 | `--exclude-files`   | Glob patterns to exclude files             |
 | `--exclude-users`   | Usernames to exclude                       |
