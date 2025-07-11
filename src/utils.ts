@@ -82,23 +82,3 @@ export function parseCoAuthors(commitMessage: string): Array<{ name?: string; em
 
   return coAuthors;
 }
-
-/**
- * Determine if a commit represents pair programming (both AI and human contributors)
- */
-export function isPairProgrammingCommit(
-  authorEmail: string | undefined,
-  coAuthorEmails: string[],
-  aiEmails: Set<string>
-): boolean {
-  const allEmails = [authorEmail, ...coAuthorEmails].filter((email): email is string => Boolean(email));
-
-  if (allEmails.length <= 1) {
-    return false; // Single contributor, not pair programming
-  }
-
-  const hasAI = allEmails.some((email) => aiEmails.has(email));
-  const hasHuman = allEmails.some((email) => !aiEmails.has(email));
-
-  return hasAI && hasHuman;
-}

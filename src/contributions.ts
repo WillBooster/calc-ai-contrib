@@ -1,7 +1,7 @@
 import { shouldExcludeUser } from './exclusions.js';
 import type { Logger } from './logger.js';
 import type { ExclusionOptions, GitHubCommit, GitHubFile, UserContribution, UserStats } from './types.js';
-import { isPairProgrammingCommit, parseCoAuthors } from './utils.js';
+import { parseCoAuthors } from './utils.js';
 
 /**
  * Calculate contribution statistics for a group of users
@@ -174,6 +174,26 @@ export function distributeFileContributions(commits: GitHubCommit[], file: GitHu
   }
 
   return contributions;
+}
+
+/**
+ * Determine if a commit represents pair programming (both AI and human contributors)
+ */
+export function isPairProgrammingCommit(
+  authorEmail: string | undefined,
+  coAuthorEmails: string[],
+  aiEmails: Set<string>
+): boolean {
+  const allEmails = [authorEmail, ...coAuthorEmails].filter((email): email is string => Boolean(email));
+
+  if (allEmails.length <= 1) {
+    return false; // Single contributor, not pair programming
+  }
+
+  const hasAI = allEmails.some((email) => aiEmails.has(email));
+  const hasHuman = allEmails.some((email) => !aiEmails.has(email));
+
+  return hasAI && hasHuman;
 }
 
 /**
