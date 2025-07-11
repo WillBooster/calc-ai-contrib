@@ -4,10 +4,12 @@ import { calculateContributionStats, convertToUserContributions, processFileCont
 import { filterCommits, filterFiles } from './exclusions.js';
 import { Logger } from './logger.js';
 import type {
+  ContributionStats,
   DateRangeAnalysisResult,
   ExclusionOptions,
   GitHubCommit,
   PRNumbersAnalysisResult,
+  UserContribution,
   UserStats,
 } from './types.js';
 import type { Repository } from './utils.js';
@@ -18,13 +20,24 @@ const octokit = new Octokit({
   auth: process.env.GH_TOKEN,
 });
 
-export async function analyzePullRequestsByDateRangeMultiRepo(
+/**
+ * Core analysis function that processes PRs from multiple repositories
+ */
+async function analyzePullRequestsCore(
   repositories: Repository[],
-  startDate: string,
-  endDate: string,
+  getPRNumbersForRepo: (owner: string, repo: string, logger: Logger) => Promise<number[]>,
   exclusionOptions: ExclusionOptions = {},
   verbose: boolean = false
-): Promise<DateRangeAnalysisResult> {
+): Promise<{
+  totalAdditions: number;
+  totalDeletions: number;
+  totalEditLines: number;
+  userContributions: UserContribution[];
+  humanContributions: ContributionStats;
+  aiContributions: ContributionStats;
+  pairContributions: ContributionStats;
+  allPrNumbers: number[];
+}> {
   const logger = new Logger(verbose);
   logger.info(`Analyzing ${repositories.length} repositories...`);
 
@@ -39,15 +52,15 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
     logger.repository(`\nProcessing repository: ${owner}/${repo}`);
 
     try {
-      // Find PRs in date range for this repository
-      const prNumbers = await findPRsByDateRange(owner, repo, startDate, endDate, logger);
+      // Get PR numbers for this repository using the provided strategy
+      const prNumbers = await getPRNumbersForRepo(owner, repo, logger);
 
       if (prNumbers.length === 0) {
-        logger.info(`No PRs found in the specified date range for ${owner}/${repo}`);
+        logger.info(`No PRs found for ${owner}/${repo}`);
         continue;
       }
 
-      logger.success(`Found ${prNumbers.length} PRs in the specified date range`);
+      logger.success(`Found ${prNumbers.length} PRs`);
       allPrNumbers.push(...prNumbers);
 
       logger.progress(`Analyzing ${prNumbers.length} PRs...`);
@@ -127,10 +140,6 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
   };
 
   return {
-    startDate,
-    endDate,
-    totalPRs: allPrNumbers.length,
-    prNumbers: allPrNumbers.sort((a, b) => a - b),
     totalAdditions: totalAdditions + totalPairAdditions,
     totalDeletions: totalDeletions + totalPairDeletions,
     totalEditLines,
@@ -138,6 +147,39 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
     humanContributions,
     aiContributions,
     pairContributions,
+    allPrNumbers: allPrNumbers.sort((a, b) => a - b),
+  };
+}
+
+export async function analyzePullRequestsByDateRangeMultiRepo(
+  repositories: Repository[],
+  startDate: string,
+  endDate: string,
+  exclusionOptions: ExclusionOptions = {},
+  verbose: boolean = false
+): Promise<DateRangeAnalysisResult> {
+  const getPRNumbersForRepo = async (owner: string, repo: string, logger: Logger) => {
+    const prNumbers = await findPRsByDateRange(owner, repo, startDate, endDate, logger);
+    if (prNumbers.length > 0) {
+      logger.success(`Found ${prNumbers.length} PRs in the specified date range`);
+    }
+    return prNumbers;
+  };
+
+  const coreResult = await analyzePullRequestsCore(repositories, getPRNumbersForRepo, exclusionOptions, verbose);
+
+  return {
+    startDate,
+    endDate,
+    totalPRs: coreResult.allPrNumbers.length,
+    prNumbers: coreResult.allPrNumbers,
+    totalAdditions: coreResult.totalAdditions,
+    totalDeletions: coreResult.totalDeletions,
+    totalEditLines: coreResult.totalEditLines,
+    userContributions: coreResult.userContributions,
+    humanContributions: coreResult.humanContributions,
+    aiContributions: coreResult.aiContributions,
+    pairContributions: coreResult.pairContributions,
   };
 }
 
@@ -231,117 +273,26 @@ export async function analyzePullRequestsByNumbersMultiRepo(
   exclusionOptions: ExclusionOptions = {},
   verbose: boolean = false
 ): Promise<PRNumbersAnalysisResult> {
-  const logger = new Logger(verbose);
-  logger.info(`Analyzing ${repositories.length} repositories...`);
-
-  let totalAdditions = 0;
-  let totalDeletions = 0;
-  let totalPairAdditions = 0;
-  let totalPairDeletions = 0;
-  const aggregatedUserStats = new Map<string, UserStats>();
-  const allPrNumbers: number[] = [];
-
-  for (const { owner, repo } of repositories) {
-    logger.repository(`\nProcessing repository: ${owner}/${repo}`);
-
-    try {
-      // Validate that PRs exist in this repository
-      const validPrNumbers = await validatePRsExist(owner, repo, prNumbers, logger);
-
-      if (validPrNumbers.length === 0) {
-        logger.info(`No valid PRs found in ${owner}/${repo}`);
-        continue;
-      }
-
+  const getPRNumbersForRepo = async (owner: string, repo: string, logger: Logger) => {
+    const validPrNumbers = await validatePRsExist(owner, repo, prNumbers, logger);
+    if (validPrNumbers.length > 0) {
       logger.success(`Found ${validPrNumbers.length} valid PRs`);
-      allPrNumbers.push(...validPrNumbers);
-
-      logger.progress(`Analyzing ${validPrNumbers.length} PRs...`);
-      for (let i = 0; i < validPrNumbers.length; i++) {
-        const prNumber = validPrNumbers[i];
-        logger.log(`\n[${i + 1}/${validPrNumbers.length}] Analyzing PR #${prNumber}...`);
-
-        try {
-          const filesResponse = await octokit.rest.pulls.listFiles({
-            owner,
-            repo,
-            pull_number: prNumber,
-          });
-
-          const files = filesResponse.data;
-
-          logger.log('Fetching PR commits...');
-          const allCommits = await getPRCommits(owner, repo, prNumber, logger);
-          logger.log(`Found ${allCommits.length} commits in PR`);
-          const filteredCommits = filterCommits(allCommits, exclusionOptions, logger);
-          const filteredFiles = filterFiles(files, exclusionOptions, logger);
-          for (const file of filteredFiles) {
-            logger.log(`Processing file: ${file.filename} (+${file.additions}/-${file.deletions})`);
-
-            const { additionsIncluded, deletionsIncluded, pairAdditions, pairDeletions } = processFileContributions(
-              file,
-              filteredCommits,
-              aggregatedUserStats,
-              exclusionOptions,
-              logger
-            );
-
-            totalAdditions += additionsIncluded;
-            totalDeletions += deletionsIncluded;
-            totalPairAdditions += pairAdditions;
-            totalPairDeletions += pairDeletions;
-          }
-        } catch (error) {
-          logger.error(`Error analyzing PR #${prNumber}:`, error);
-        }
-
-        if (!logger.verbose) {
-          process.stdout.write('.');
-        }
-      }
-
-      // Add newline after processing all PRs in this repository
-      showProgressIndicator(logger.verbose, validPrNumbers.length);
-    } catch (error) {
-      logger.error(`Error analyzing repository ${owner}/${repo}:`, error);
-      // Continue with other repositories
     }
-  }
-
-  // Calculate final statistics
-  const totalPairEditLines = totalPairAdditions + totalPairDeletions;
-  const totalEditLines = totalAdditions + totalDeletions + totalPairEditLines;
-
-  // Convert aggregated stats to user contributions
-  const userContributions = convertToUserContributions(aggregatedUserStats, totalEditLines);
-
-  // Calculate human vs AI contributions (excluding pair programming)
-  const aiEmails = exclusionOptions.aiEmails || new Set<string>();
-  const humanContribs = userContributions.filter((contrib) => !aiEmails.has(contrib.email || ''));
-  const aiContribs = userContributions.filter((contrib) => aiEmails.has(contrib.email || ''));
-
-  const humanContributions = calculateContributionStats(humanContribs, totalEditLines);
-  const aiContributions = calculateContributionStats(aiContribs, totalEditLines);
-
-  // Calculate pair programming contributions
-  const pairContributions = {
-    totalAdditions: totalPairAdditions,
-    totalDeletions: totalPairDeletions,
-    totalEditLines: totalPairEditLines,
-    percentage: totalEditLines > 0 ? Math.round((totalPairEditLines / totalEditLines) * 100) : 0,
-    peopleCount: 0, // Pair programming doesn't count as individual people
+    return validPrNumbers;
   };
 
+  const coreResult = await analyzePullRequestsCore(repositories, getPRNumbersForRepo, exclusionOptions, verbose);
+
   return {
-    totalPRs: allPrNumbers.length,
-    prNumbers: allPrNumbers.sort((a, b) => a - b),
-    totalAdditions: totalAdditions + totalPairAdditions,
-    totalDeletions: totalDeletions + totalPairDeletions,
-    totalEditLines,
-    userContributions,
-    humanContributions,
-    aiContributions,
-    pairContributions,
+    totalPRs: coreResult.allPrNumbers.length,
+    prNumbers: coreResult.allPrNumbers,
+    totalAdditions: coreResult.totalAdditions,
+    totalDeletions: coreResult.totalDeletions,
+    totalEditLines: coreResult.totalEditLines,
+    userContributions: coreResult.userContributions,
+    humanContributions: coreResult.humanContributions,
+    aiContributions: coreResult.aiContributions,
+    pairContributions: coreResult.pairContributions,
   };
 }
 

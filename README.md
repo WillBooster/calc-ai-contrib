@@ -16,11 +16,11 @@
 ## 🚀 Quick Start
 
 ```bash
-# Analyze specific PRs
-GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib --repo WillBooster/calc-ai-contrib --pr-numbers 123 456 --exclude-users "renovate[bot]" --ai-emails "bot@willbooster.com"
+# npx
+GH_TOKEN=[your_github_token_here] npx --yes calc-ai-contrib --repo WillBooster/calc-ai-contrib --start-date 2025-07-10 --end-date 2025-07-10 --exclude-users "renovate[bot]" --ai-emails "bot@willbooster.com" "agent@willbooster.com"
 
-# Analyze by date range
-GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib --repo WillBooster/calc-ai-contrib --start-date 2024-01-01 --end-date 2024-01-31 --ai-emails "bot@willbooster.com"
+# bunx
+GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib --repo WillBooster/calc-ai-contrib --start-date 2025-07-10 --end-date 2025-07-10 --exclude-users "renovate[bot]" --ai-emails "bot@willbooster.com" "agent@willbooster.com"
 ```
 
 ## 📖 Usage Examples
