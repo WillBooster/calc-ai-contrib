@@ -4,6 +4,7 @@ import { hideBin } from 'yargs/helpers';
 import { analyzePullRequestsByDateRangeMultiRepo, analyzePullRequestsByNumbersMultiRepo } from './analyzer.js';
 import { hasExclusionOptions } from './exclusions.js';
 import { formatAnalysisResult, logExclusionOptions } from './format.js';
+import type { PRNumbersAnalysisResult } from './types.js';
 import { parseRepositories, validateDateRange, validatePRNumbers, validateRepositoryFormat } from './utils.js';
 
 async function main() {
@@ -147,25 +148,20 @@ async function main() {
 
     console.log(ansis.yellow('Note: Set GH_TOKEN environment variable for higher rate limits.'));
 
+    let result: PRNumbersAnalysisResult;
     if (prNumbers && (prNumbers as string[]).length > 0) {
       // PR numbers mode
       const prNumbersArray = (prNumbers as string[]).map(Number);
       console.log(ansis.blue(`Analyzing PRs ${prNumbersArray.join(', ')} from ${repositories.length} repositories...`));
-      const result = await analyzePullRequestsByNumbersMultiRepo(
-        repositories,
-        prNumbersArray,
-        exclusionOptions,
-        verbose
-      );
-      console.log(`\n${formatAnalysisResult(result, exclusionOptions)}`);
+      result = await analyzePullRequestsByNumbersMultiRepo(repositories, prNumbersArray, exclusionOptions, verbose);
     } else {
       // Date range mode
       const start = startDate as string;
       const end = endDate as string;
       console.log(ansis.blue(`Analyzing PRs from ${start} to ${end} across ${repositories.length} repositories...`));
-      const result = await analyzePullRequestsByDateRangeMultiRepo(repositories, start, end, exclusionOptions, verbose);
-      console.log(`\n${formatAnalysisResult(result, exclusionOptions)}`);
+      result = await analyzePullRequestsByDateRangeMultiRepo(repositories, start, end, exclusionOptions, verbose);
     }
+    console.log(`\n${formatAnalysisResult(result, exclusionOptions)}`);
   } catch (error) {
     console.error(ansis.red('Error analyzing PR:'), error);
   }
