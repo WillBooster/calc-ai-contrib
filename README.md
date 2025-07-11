@@ -16,30 +16,26 @@
 ## 🚀 Quick Start
 
 ```bash
-# npx
-GH_TOKEN=[your_github_token_here] npx --yes calc-ai-contrib --repo WillBooster/calc-ai-contrib --start-date 2025-07-10 --end-date 2025-07-10 --exclude-users "renovate[bot]" --ai-emails "bot@willbooster.com" "agent@willbooster.com"
-
-# bunx
-GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib --repo WillBooster/calc-ai-contrib --start-date 2025-07-10 --end-date 2025-07-10 --exclude-users "renovate[bot]" --ai-emails "bot@willbooster.com" "agent@willbooster.com"
+GH_TOKEN=[your_github_token_here] npx --yes calc-ai-contrib@latest --repo WillBooster/calc-ai-contrib --start-date 2025-07-10 --end-date 2025-07-10 --exclude-users "renovate[bot]" --ai-emails "bot@willbooster.com" "agent@willbooster.com"
 ```
 
 ## 📖 Usage Examples
 
 ```bash
 # Analyze specific PRs
-GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -p 123 456 789
+GH_TOKEN=[your_github_token_here] npx --yes calc-ai-contrib@latest -r owner/repo -p 123 456 789
 
 # Analyze by date range
-GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -s 2024-01-01 -e 2024-01-31
+GH_TOKEN=[your_github_token_here] npx --yes calc-ai-contrib@latest -r owner/repo -s 2024-01-01 -e 2024-01-31
 
 # Multiple repositories with date range
-GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo1 owner/repo2 -s 2024-01-01 -e 2024-01-31
+GH_TOKEN=[your_github_token_here] npx --yes calc-ai-contrib@latest -r owner/repo1 owner/repo2 -s 2024-01-01 -e 2024-01-31
 
 # With AI detection (includes default AI emails)
-GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -s 2024-01-01 -e 2024-01-31 --ai-emails "bot@company.com"
+GH_TOKEN=[your_github_token_here] npx --yes calc-ai-contrib@latest -r owner/repo -s 2024-01-01 -e 2024-01-31 --ai-emails "bot@company.com"
 
 # Advanced filtering with date range
-GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -s 2024-01-01 -e 2024-01-31 \
+GH_TOKEN=[your_github_token_here] npx --yes calc-ai-contrib@latest -r owner/repo -s 2024-01-01 -e 2024-01-31 \
   --exclude-files "*.md" "test/**" \
   --exclude-users "dependabot"
 ```
