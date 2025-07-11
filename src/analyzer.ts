@@ -4,7 +4,6 @@ import { calculateContributionStats, convertToUserContributions, processFileCont
 import { filterCommits, filterFiles } from './exclusions.js';
 import { Logger } from './logger.js';
 import type {
-  BaseAnalysisResult,
   DateRangeAnalysisResult,
   ExclusionOptions,
   GitHubCommit,
@@ -26,7 +25,7 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
   exclusionOptions: ExclusionOptions = {},
   verbose: boolean = false
 ): Promise<DateRangeAnalysisResult> {
-  const { allPrNumbers, ...rest } = await analyzePullRequestsCore(
+  const result = await analyzePullRequestsCore(
     repositories,
     async (owner: string, repo: string, logger: Logger) => {
       const prNumbers = await findPRsByDateRange(owner, repo, startDate, endDate, logger);
@@ -38,13 +37,10 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
     exclusionOptions,
     verbose
   );
-
   return {
-    ...rest,
+    ...result,
     startDate,
     endDate,
-    totalPRs: allPrNumbers.length,
-    prNumbers: allPrNumbers,
   };
 }
 
@@ -54,7 +50,7 @@ export async function analyzePullRequestsByNumbersMultiRepo(
   exclusionOptions: ExclusionOptions = {},
   verbose: boolean = false
 ): Promise<PRNumbersAnalysisResult> {
-  const { allPrNumbers, ...rest } = await analyzePullRequestsCore(
+  return await analyzePullRequestsCore(
     repositories,
     async (owner: string, repo: string, logger: Logger) => {
       const validPrNumbers = await validatePRsExist(owner, repo, prNumbers, logger);
@@ -66,12 +62,6 @@ export async function analyzePullRequestsByNumbersMultiRepo(
     exclusionOptions,
     verbose
   );
-
-  return {
-    ...rest,
-    totalPRs: allPrNumbers.length,
-    prNumbers: allPrNumbers,
-  };
 }
 
 /**
@@ -82,7 +72,7 @@ async function analyzePullRequestsCore(
   getPRNumbersForRepo: (owner: string, repo: string, logger: Logger) => Promise<number[]>,
   exclusionOptions: ExclusionOptions = {},
   verbose: boolean = false
-): Promise<BaseAnalysisResult & { allPrNumbers: number[] }> {
+): Promise<PRNumbersAnalysisResult> {
   const logger = new Logger(verbose);
   logger.info(`Analyzing ${repositories.length} repositories...`);
 
@@ -184,6 +174,8 @@ async function analyzePullRequestsCore(
     peopleCount: 0, // Pair programming doesn't count as individual people
   };
 
+  const sortedPrNumbers = allPrNumbers.sort((a, b) => a - b);
+
   return {
     totalAdditions: totalAdditions + totalPairAdditions,
     totalDeletions: totalDeletions + totalPairDeletions,
@@ -192,7 +184,8 @@ async function analyzePullRequestsCore(
     humanContributions,
     aiContributions,
     pairContributions,
-    allPrNumbers: allPrNumbers.sort((a, b) => a - b),
+    totalPRs: sortedPrNumbers.length,
+    prNumbers: sortedPrNumbers,
   };
 }
 
