@@ -42,25 +42,20 @@ GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -s 2024-01-
 GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -s 2024-01-01 -e 2024-01-31 \
   --exclude-files "*.md" "test/**" \
   --exclude-users "dependabot"
-
-# Advanced filtering with specific PRs
-GH_TOKEN=[your_github_token_here] bunx calc-ai-contrib -r owner/repo -p 123 456 789 \
-  --exclude-files "*.md" "test/**" \
-  --exclude-users "dependabot"
 ```
 
 ### Key Options
 
-| Option              | Description                                                    |
-| ------------------- | -------------------------------------------------------------- |
-| `--repo` `-r`       | Repository(s) in `owner/repo` format                          |
-| `--pr-numbers` `-p` | PR numbers to analyze (e.g., 123 456 789)                     |
-| `--start-date` `-s` | Start date for analysis (YYYY-MM-DD format)                   |
-| `--end-date` `-e`   | End date for analysis (YYYY-MM-DD format)                     |
+| Option              | Description                                                                        |
+| ------------------- | ---------------------------------------------------------------------------------- |
+| `--repo` `-r`       | Repository(s) in `owner/repo` format                                               |
+| `--pr-numbers` `-p` | PR numbers to analyze (e.g., 123 456 789)                                          |
+| `--start-date` `-s` | Start date for analysis (YYYY-MM-DD format)                                        |
+| `--end-date` `-e`   | End date for analysis (YYYY-MM-DD format)                                          |
 | `--ai-emails`       | Additional AI emails (includes aider@aider.chat, noreply@anthropic.com by default) |
-| `--exclude-files`   | Glob patterns to exclude files                                 |
-| `--exclude-users`   | Usernames to exclude                                           |
-| `--verbose` `-v`    | Show detailed progress                                         |
+| `--exclude-files`   | Glob patterns to exclude files                                                     |
+| `--exclude-users`   | Usernames to exclude                                                               |
+| `--verbose` `-v`    | Show detailed progress                                                             |
 
 **Note:** You must provide either `--pr-numbers` OR both `--start-date` and `--end-date`, but not both.
 
