@@ -40,7 +40,8 @@ async function main() {
       })
       .option('ai-emails', {
         type: 'array',
-        description: 'Email addresses to identify as AI contributors for human vs AI breakdown',
+        description:
+          'Additional email addresses to identify as AI contributors (includes aider@aider.chat and noreply@anthropic.com by default)',
       })
       .option('verbose', {
         alias: 'v',
@@ -72,7 +73,7 @@ async function main() {
       )
       .example(
         '$0 -r WillBooster/gen-pr -p 123 456 --ai-emails "bot@willbooster.com" "ai@example.com"',
-        'Analyze PRs with human vs AI breakdown, identifying specified emails as AI'
+        'Analyze PRs with human vs AI breakdown (includes default AI emails plus specified ones)'
       )
       .parse();
 
