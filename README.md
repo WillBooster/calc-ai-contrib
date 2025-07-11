@@ -22,20 +22,22 @@ GH_TOKEN=[your_github_token_here] npx --yes calc-ai-contrib@latest --repo WillBo
 ## 📖 Usage Examples
 
 ```bash
+export GH_TOKEN=[your_github_token_here]
+
 # Analyze specific PRs
-GH_TOKEN=[your_github_token_here] npx --yes calc-ai-contrib@latest -r owner/repo -p 123 456 789
+npx --yes calc-ai-contrib@latest -r owner/repo -p 123 456 789
 
 # Analyze by date range
-GH_TOKEN=[your_github_token_here] npx --yes calc-ai-contrib@latest -r owner/repo -s 2024-01-01 -e 2024-01-31
+npx --yes calc-ai-contrib@latest -r owner/repo -s 2024-01-01 -e 2024-01-31
 
 # Multiple repositories with date range
-GH_TOKEN=[your_github_token_here] npx --yes calc-ai-contrib@latest -r owner/repo1 owner/repo2 -s 2024-01-01 -e 2024-01-31
+npx --yes calc-ai-contrib@latest -r owner/repo1 owner/repo2 -s 2024-01-01 -e 2024-01-31
 
 # With AI detection (includes default AI emails)
-GH_TOKEN=[your_github_token_here] npx --yes calc-ai-contrib@latest -r owner/repo -s 2024-01-01 -e 2024-01-31 --ai-emails "bot@company.com"
+npx --yes calc-ai-contrib@latest -r owner/repo -s 2024-01-01 -e 2024-01-31 --ai-emails "bot@company.com"
 
 # Advanced filtering with date range
-GH_TOKEN=[your_github_token_here] npx --yes calc-ai-contrib@latest -r owner/repo -s 2024-01-01 -e 2024-01-31 \
+npx --yes calc-ai-contrib@latest -r owner/repo -s 2024-01-01 -e 2024-01-31 \
   --exclude-files "*.md" "test/**" \
   --exclude-users "dependabot"
 ```
