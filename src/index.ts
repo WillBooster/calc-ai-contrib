@@ -4,7 +4,7 @@ import { hideBin } from 'yargs/helpers';
 import { analyzePullRequestsByDateRangeMultiRepo, analyzePullRequestsByNumbersMultiRepo } from './analyzer.js';
 import { hasExclusionOptions } from './exclusions.js';
 import { formatAnalysisResult, logExclusionOptions } from './format.js';
-import { parseRepositories, validatePRNumbers, validateRepositoryFormat } from './utils.js';
+import { parseRepositories, validateDateRange, validatePRNumbers, validateRepositoryFormat } from './utils.js';
 
 async function main() {
   try {
@@ -85,15 +85,7 @@ async function main() {
             throw new Error('Both --start-date and --end-date are required for date range analysis');
           }
 
-          // Validate date format (YYYY-MM-DD)
-          const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-          if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
-            throw new Error('Dates must be in YYYY-MM-DD format');
-          }
-
-          if (new Date(startDate) > new Date(endDate)) {
-            throw new Error('Start date must be before or equal to end date');
-          }
+          validateDateRange(startDate, endDate);
         }
 
         return true;
