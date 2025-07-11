@@ -196,7 +196,7 @@ export function distributeFileContributionsWithPairTracking(
     return { userContributions, pairContributions: { additions: 0, deletions: 0 } };
   }
 
-  const aiEmails = exclusionOptions.aiEmails || [];
+  const aiEmails = exclusionOptions.aiEmails || new Set<string>();
 
   // Separate commits into pair programming and non-pair programming
   const pairCommits: GitHubCommit[] = [];

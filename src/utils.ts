@@ -89,7 +89,7 @@ export function parseCoAuthors(commitMessage: string): Array<{ name?: string; em
 export function isPairProgrammingCommit(
   authorEmail: string | undefined,
   coAuthorEmails: string[],
-  aiEmails: string[]
+  aiEmails: Set<string>
 ): boolean {
   const allEmails = [authorEmail, ...coAuthorEmails].filter((email): email is string => Boolean(email));
 
@@ -97,8 +97,8 @@ export function isPairProgrammingCommit(
     return false; // Single contributor, not pair programming
   }
 
-  const hasAI = allEmails.some((email) => aiEmails.includes(email));
-  const hasHuman = allEmails.some((email) => !aiEmails.includes(email));
+  const hasAI = allEmails.some((email) => aiEmails.has(email));
+  const hasHuman = allEmails.some((email) => !aiEmails.has(email));
 
   return hasAI && hasHuman;
 }

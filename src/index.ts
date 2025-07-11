@@ -91,12 +91,17 @@ async function main() {
     const repositories = parseRepositories(repos as string[]);
 
     // Build exclusion options
+    const aiEmailsSet = new Set<string>(['aider@aider.chat', 'noreply@anthropic.com']);
+    if (aiEmails) {
+      (aiEmails as string[]).forEach((email) => aiEmailsSet.add(email));
+    }
+
     const exclusionOptions = {
       excludeFiles: excludeFiles as string[] | undefined,
       excludeUsers: excludeUsers as string[] | undefined,
       excludeEmails: excludeEmails as string[] | undefined,
       excludeCommitMessages: excludeCommitMessages as string[] | undefined,
-      aiEmails: aiEmails as string[] | undefined,
+      aiEmails: aiEmailsSet,
     };
 
     // Log exclusion options if any are provided and verbose mode is enabled

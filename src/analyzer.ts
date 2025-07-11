@@ -110,9 +110,9 @@ export async function analyzePullRequestsByDateRangeMultiRepo(
   const userContributions = convertToUserContributions(aggregatedUserStats, totalEditLines);
 
   // Calculate human vs AI contributions (excluding pair programming)
-  const aiEmails = exclusionOptions.aiEmails || [];
-  const humanContribs = userContributions.filter((contrib) => !aiEmails.some((aiEmail) => contrib.email === aiEmail));
-  const aiContribs = userContributions.filter((contrib) => aiEmails.some((aiEmail) => contrib.email === aiEmail));
+  const aiEmails = exclusionOptions.aiEmails || new Set<string>();
+  const humanContribs = userContributions.filter((contrib) => !aiEmails.has(contrib.email || ''));
+  const aiContribs = userContributions.filter((contrib) => aiEmails.has(contrib.email || ''));
 
   const humanContributions = calculateContributionStats(humanContribs, totalEditLines);
   const aiContributions = calculateContributionStats(aiContribs, totalEditLines);
@@ -316,9 +316,9 @@ export async function analyzePullRequestsByNumbersMultiRepo(
   const userContributions = convertToUserContributions(aggregatedUserStats, totalEditLines);
 
   // Calculate human vs AI contributions (excluding pair programming)
-  const aiEmails = exclusionOptions.aiEmails || [];
-  const humanContribs = userContributions.filter((contrib) => !aiEmails.some((aiEmail) => contrib.email === aiEmail));
-  const aiContribs = userContributions.filter((contrib) => aiEmails.some((aiEmail) => contrib.email === aiEmail));
+  const aiEmails = exclusionOptions.aiEmails || new Set<string>();
+  const humanContribs = userContributions.filter((contrib) => !aiEmails.has(contrib.email || ''));
+  const aiContribs = userContributions.filter((contrib) => aiEmails.has(contrib.email || ''));
 
   const humanContributions = calculateContributionStats(humanContribs, totalEditLines);
   const aiContributions = calculateContributionStats(aiContribs, totalEditLines);

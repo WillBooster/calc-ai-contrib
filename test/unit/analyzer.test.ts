@@ -190,7 +190,7 @@ describe('GitHub PR Analyzer', () => {
 
     // Test with AI email specified
     const resultWithAI = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate, {
-      aiEmails: ['bot@willbooster.com'],
+      aiEmails: new Set(['bot@willbooster.com']),
     });
 
     expect(resultWithAI.totalPRs).toBe(1);
@@ -251,7 +251,7 @@ describe('GitHub PR Analyzer', () => {
 
     // Test with AI email specified
     const resultWithAI = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate, {
-      aiEmails: ['bot@willbooster.com'],
+      aiEmails: new Set(['bot@willbooster.com']),
     });
 
     expect(resultWithAI.totalEditLines).toBe(1873);
@@ -300,7 +300,7 @@ Co-authored-by: AI Assistant <ai@willbooster.com>`;
     expect(coAuthors[1]).toEqual({ name: 'AI Assistant', email: 'ai@willbooster.com' });
 
     // Test pair programming detection
-    const aiEmails = ['ai@willbooster.com'];
+    const aiEmails = new Set(['ai@willbooster.com']);
     const authorEmail = 'human@example.com';
     const coAuthorEmails = ['ai@willbooster.com'];
 
@@ -314,7 +314,7 @@ Co-authored-by: AI Assistant <ai@willbooster.com>`;
       isPairProgrammingCommit(
         'ai@willbooster.com',
         ['ai2@willbooster.com'],
-        ['ai@willbooster.com', 'ai2@willbooster.com']
+        new Set(['ai@willbooster.com', 'ai2@willbooster.com'])
       )
     ).toBe(false);
   });
@@ -326,7 +326,7 @@ Co-authored-by: AI Assistant <ai@willbooster.com>`;
 
     // Test with AI emails that should detect pair programming
     const resultWithAI = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate, {
-      aiEmails: ['agent@willbooster.com'],
+      aiEmails: new Set(['agent@willbooster.com']),
     });
 
     // Verify concrete expected values based on the actual data from 2025-07-10

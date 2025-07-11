@@ -5,7 +5,7 @@ export interface ExclusionOptions {
   excludeUsers?: string[];
   excludeEmails?: string[];
   excludeCommitMessages?: string[];
-  aiEmails?: string[];
+  aiEmails?: Set<string>;
 }
 
 export interface UserStats {

@@ -41,8 +41,8 @@ export function logExclusionOptions(options: ExclusionOptions, ansiColors: typeo
   if (options.excludeCommitMessages?.length) {
     console.log(ansiColors.dim(`  Exclude commit messages containing: ${options.excludeCommitMessages.join(', ')}`));
   }
-  if (options.aiEmails?.length) {
-    console.log(ansiColors.dim(`  AI emails: ${options.aiEmails.join(', ')}`));
+  if (options.aiEmails?.size) {
+    console.log(ansiColors.dim(`  AI emails: ${Array.from(options.aiEmails).join(', ')}`));
   }
   console.log('');
 }
@@ -51,7 +51,7 @@ export function formatAnalysisResult(
   result: PRAnalysisResult | DateRangeAnalysisResult | PRNumbersAnalysisResult,
   exclusionOptions: ExclusionOptions = {}
 ): string {
-  const hasAIEmails = Boolean(exclusionOptions.aiEmails && exclusionOptions.aiEmails.length > 0);
+  const hasAIEmails = Boolean(exclusionOptions.aiEmails && exclusionOptions.aiEmails.size > 0);
 
   const lines: string[] = [
     ...formatHeader(result, hasAIEmails),
