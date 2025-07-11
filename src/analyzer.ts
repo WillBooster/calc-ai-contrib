@@ -20,6 +20,65 @@ const octokit = new Octokit({
   auth: process.env.GH_TOKEN,
 });
 
+export async function analyzePullRequestsByDateRangeMultiRepo(
+  repositories: Repository[],
+  startDate: string,
+  endDate: string,
+  exclusionOptions: ExclusionOptions = {},
+  verbose: boolean = false
+): Promise<DateRangeAnalysisResult> {
+  const getPRNumbersForRepo = async (owner: string, repo: string, logger: Logger) => {
+    const prNumbers = await findPRsByDateRange(owner, repo, startDate, endDate, logger);
+    if (prNumbers.length > 0) {
+      logger.success(`Found ${prNumbers.length} PRs in the specified date range`);
+    }
+    return prNumbers;
+  };
+
+  const { allPrNumbers, ...rest } = await analyzePullRequestsCore(
+    repositories,
+    getPRNumbersForRepo,
+    exclusionOptions,
+    verbose
+  );
+
+  return {
+    ...rest,
+    startDate,
+    endDate,
+    totalPRs: allPrNumbers.length,
+    prNumbers: allPrNumbers,
+  };
+}
+
+export async function analyzePullRequestsByNumbersMultiRepo(
+  repositories: Repository[],
+  prNumbers: number[],
+  exclusionOptions: ExclusionOptions = {},
+  verbose: boolean = false
+): Promise<PRNumbersAnalysisResult> {
+  const getPRNumbersForRepo = async (owner: string, repo: string, logger: Logger) => {
+    const validPrNumbers = await validatePRsExist(owner, repo, prNumbers, logger);
+    if (validPrNumbers.length > 0) {
+      logger.success(`Found ${validPrNumbers.length} valid PRs`);
+    }
+    return validPrNumbers;
+  };
+
+  const { allPrNumbers, ...rest } = await analyzePullRequestsCore(
+    repositories,
+    getPRNumbersForRepo,
+    exclusionOptions,
+    verbose
+  );
+
+  return {
+    ...rest,
+    totalPRs: allPrNumbers.length,
+    prNumbers: allPrNumbers,
+  };
+}
+
 /**
  * Core analysis function that processes PRs from multiple repositories
  */
@@ -151,38 +210,6 @@ async function analyzePullRequestsCore(
   };
 }
 
-export async function analyzePullRequestsByDateRangeMultiRepo(
-  repositories: Repository[],
-  startDate: string,
-  endDate: string,
-  exclusionOptions: ExclusionOptions = {},
-  verbose: boolean = false
-): Promise<DateRangeAnalysisResult> {
-  const getPRNumbersForRepo = async (owner: string, repo: string, logger: Logger) => {
-    const prNumbers = await findPRsByDateRange(owner, repo, startDate, endDate, logger);
-    if (prNumbers.length > 0) {
-      logger.success(`Found ${prNumbers.length} PRs in the specified date range`);
-    }
-    return prNumbers;
-  };
-
-  const coreResult = await analyzePullRequestsCore(repositories, getPRNumbersForRepo, exclusionOptions, verbose);
-
-  return {
-    startDate,
-    endDate,
-    totalPRs: coreResult.allPrNumbers.length,
-    prNumbers: coreResult.allPrNumbers,
-    totalAdditions: coreResult.totalAdditions,
-    totalDeletions: coreResult.totalDeletions,
-    totalEditLines: coreResult.totalEditLines,
-    userContributions: coreResult.userContributions,
-    humanContributions: coreResult.humanContributions,
-    aiContributions: coreResult.aiContributions,
-    pairContributions: coreResult.pairContributions,
-  };
-}
-
 async function getPRCommits(owner: string, repo: string, prNumber: number, logger: Logger): Promise<GitHubCommit[]> {
   logger.log('Making single API call to get PR commits...');
   const commitsResponse = await octokit.rest.pulls.listCommits({
@@ -265,35 +292,6 @@ function showProgressIndicator(verbose: boolean, prCount: number): void {
   if (!verbose && prCount > 0) {
     console.log(''); // Add newline after dots
   }
-}
-
-export async function analyzePullRequestsByNumbersMultiRepo(
-  repositories: Repository[],
-  prNumbers: number[],
-  exclusionOptions: ExclusionOptions = {},
-  verbose: boolean = false
-): Promise<PRNumbersAnalysisResult> {
-  const getPRNumbersForRepo = async (owner: string, repo: string, logger: Logger) => {
-    const validPrNumbers = await validatePRsExist(owner, repo, prNumbers, logger);
-    if (validPrNumbers.length > 0) {
-      logger.success(`Found ${validPrNumbers.length} valid PRs`);
-    }
-    return validPrNumbers;
-  };
-
-  const coreResult = await analyzePullRequestsCore(repositories, getPRNumbersForRepo, exclusionOptions, verbose);
-
-  return {
-    totalPRs: coreResult.allPrNumbers.length,
-    prNumbers: coreResult.allPrNumbers,
-    totalAdditions: coreResult.totalAdditions,
-    totalDeletions: coreResult.totalDeletions,
-    totalEditLines: coreResult.totalEditLines,
-    userContributions: coreResult.userContributions,
-    humanContributions: coreResult.humanContributions,
-    aiContributions: coreResult.aiContributions,
-    pairContributions: coreResult.pairContributions,
-  };
 }
 
 async function validatePRsExist(owner: string, repo: string, prNumbers: number[], logger: Logger): Promise<number[]> {
