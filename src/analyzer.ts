@@ -50,17 +50,7 @@ export async function analyzePullRequestsByNumbersMultiRepo(
   exclusionOptions: ExclusionOptions = {},
   verbose: boolean = false
 ): Promise<PRNumbersAnalysisResult> {
-  return await analyzePullRequestsCore(
-    repositories,
-    async (_owner: string, _repo: string, logger: Logger) => {
-      if (prNumbers.length > 0) {
-        logger.success(`Processing ${prNumbers.length} PRs`);
-      }
-      return prNumbers;
-    },
-    exclusionOptions,
-    verbose
-  );
+  return await analyzePullRequestsCore(repositories, async () => prNumbers, exclusionOptions, verbose);
 }
 
 /**
