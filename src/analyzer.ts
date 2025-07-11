@@ -4,12 +4,11 @@ import { calculateContributionStats, convertToUserContributions, processFileCont
 import { filterCommits, filterFiles } from './exclusions.js';
 import { Logger } from './logger.js';
 import type {
-  ContributionStats,
+  BaseAnalysisResult,
   DateRangeAnalysisResult,
   ExclusionOptions,
   GitHubCommit,
   PRNumbersAnalysisResult,
-  UserContribution,
   UserStats,
 } from './types.js';
 import type { Repository } from './utils.js';
@@ -83,16 +82,7 @@ async function analyzePullRequestsCore(
   getPRNumbersForRepo: (owner: string, repo: string, logger: Logger) => Promise<number[]>,
   exclusionOptions: ExclusionOptions = {},
   verbose: boolean = false
-): Promise<{
-  totalAdditions: number;
-  totalDeletions: number;
-  totalEditLines: number;
-  userContributions: UserContribution[];
-  humanContributions: ContributionStats;
-  aiContributions: ContributionStats;
-  pairContributions: ContributionStats;
-  allPrNumbers: number[];
-}> {
+): Promise<BaseAnalysisResult & { allPrNumbers: number[] }> {
   const logger = new Logger(verbose);
   logger.info(`Analyzing ${repositories.length} repositories...`);
 
