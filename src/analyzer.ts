@@ -52,12 +52,11 @@ export async function analyzePullRequestsByNumbersMultiRepo(
 ): Promise<PRNumbersAnalysisResult> {
   return await analyzePullRequestsCore(
     repositories,
-    async (owner: string, repo: string, logger: Logger) => {
-      const validPrNumbers = await validatePRsExist(owner, repo, prNumbers, logger);
-      if (validPrNumbers.length > 0) {
-        logger.success(`Found ${validPrNumbers.length} valid PRs`);
+    async (_owner: string, _repo: string, logger: Logger) => {
+      if (prNumbers.length > 0) {
+        logger.success(`Processing ${prNumbers.length} PRs`);
       }
-      return validPrNumbers;
+      return prNumbers;
     },
     exclusionOptions,
     verbose
@@ -271,25 +270,4 @@ function showProgressIndicator(verbose: boolean, prCount: number): void {
   if (!verbose && prCount > 0) {
     console.log(''); // Add newline after dots
   }
-}
-
-async function validatePRsExist(owner: string, repo: string, prNumbers: number[], logger: Logger): Promise<number[]> {
-  const validPrNumbers: number[] = [];
-
-  for (const prNumber of prNumbers) {
-    try {
-      logger.log(`Checking if PR #${prNumber} exists...`);
-      await octokit.rest.pulls.get({
-        owner,
-        repo,
-        pull_number: prNumber,
-      });
-      validPrNumbers.push(prNumber);
-      logger.log(`PR #${prNumber} exists`);
-    } catch (error) {
-      logger.error(`PR #${prNumber} not found in ${owner}/${repo}:`, error);
-    }
-  }
-
-  return validPrNumbers;
 }
