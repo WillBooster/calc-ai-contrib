@@ -22,7 +22,7 @@ export class Logger {
    */
   log(message: string): void {
     if (this._verbose) {
-      console.log(ansis.dim(message));
+      console.info(ansis.dim(message));
     }
   }
 
@@ -30,14 +30,14 @@ export class Logger {
    * Always log important messages regardless of verbose mode
    */
   info(message: string): void {
-    console.log(message);
+    console.info(message);
   }
 
   /**
    * Log success messages in green
    */
   success(message: string): void {
-    console.log(ansis.green(message));
+    console.info(ansis.green(message));
   }
 
   /**
@@ -62,13 +62,13 @@ export class Logger {
    * Log repository processing messages in cyan
    */
   repository(message: string): void {
-    console.log(ansis.cyan(message));
+    console.info(ansis.cyan(message));
   }
 
   /**
    * Log progress messages in blue
    */
   progress(message: string): void {
-    console.log(ansis.blue(message));
+    console.info(ansis.blue(message));
   }
 }

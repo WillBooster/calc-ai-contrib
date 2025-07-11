@@ -146,22 +146,24 @@ async function main() {
       logExclusionOptions(exclusionOptions, ansis);
     }
 
-    console.log(ansis.yellow('Note: Set GH_TOKEN environment variable for higher rate limits.'));
+    console.info(ansis.yellow('Note: Set GH_TOKEN environment variable for higher rate limits.'));
 
     let result: PRNumbersAnalysisResult;
     if (prNumbers && (prNumbers as string[]).length > 0) {
       // PR numbers mode
       const prNumbersArray = (prNumbers as string[]).map(Number);
-      console.log(ansis.blue(`Analyzing PRs ${prNumbersArray.join(', ')} from ${repositories.length} repositories...`));
+      console.info(
+        ansis.blue(`Analyzing PRs ${prNumbersArray.join(', ')} from ${repositories.length} repositories...`)
+      );
       result = await analyzePullRequestsByNumbersMultiRepo(repositories, prNumbersArray, exclusionOptions, verbose);
     } else {
       // Date range mode
       const start = startDate as string;
       const end = endDate as string;
-      console.log(ansis.blue(`Analyzing PRs from ${start} to ${end} across ${repositories.length} repositories...`));
+      console.info(ansis.blue(`Analyzing PRs from ${start} to ${end} across ${repositories.length} repositories...`));
       result = await analyzePullRequestsByDateRangeMultiRepo(repositories, start, end, exclusionOptions, verbose);
     }
-    console.log(`\n${formatAnalysisResult(result, exclusionOptions)}`);
+    console.info(`\n${formatAnalysisResult(result, exclusionOptions)}`);
   } catch (error) {
     console.error(ansis.red('Error analyzing PR:'), error);
   }

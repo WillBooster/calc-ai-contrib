@@ -258,6 +258,6 @@ async function findPRsByDateRange(
 
 function showProgressIndicator(verbose: boolean, prCount: number): void {
   if (!verbose && prCount > 0) {
-    console.log(''); // Add newline after dots
+    console.info(''); // Add newline after dots
   }
 }

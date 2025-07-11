@@ -146,57 +146,57 @@ function createPRNumbersAnalysisResult(
 }
 
 function runTests() {
-  console.log('🧪 Testing formatAnalysisResult\n');
-  console.log('='.repeat(80));
+  console.info('🧪 Testing formatAnalysisResult\n');
+  console.info('='.repeat(80));
 
-  console.log('\n📋 TEST 1: PR Analysis (Basic)');
-  console.log('-'.repeat(50));
+  console.info('\n📋 TEST 1: PR Analysis (Basic)');
+  console.info('-'.repeat(50));
   const prResult1 = createPRAnalysisResult(userContributions);
-  console.log(formatAnalysisResult(prResult1, {}));
+  console.info(formatAnalysisResult(prResult1, {}));
 
-  console.log('\n📋 TEST 2: PR Analysis (With AI emails)');
-  console.log('-'.repeat(50));
+  console.info('\n📋 TEST 2: PR Analysis (With AI emails)');
+  console.info('-'.repeat(50));
   const aiEmails = new Set(['bot@willbooster.com', 'ai@example.com']);
   const prResult2 = createPRAnalysisResult(userContributions, aiEmails);
-  console.log(formatAnalysisResult(prResult2, { aiEmails }));
+  console.info(formatAnalysisResult(prResult2, { aiEmails }));
 
-  console.log('\n📋 TEST 3: Date Range Analysis (Basic)');
-  console.log('-'.repeat(50));
+  console.info('\n📋 TEST 3: Date Range Analysis (Basic)');
+  console.info('-'.repeat(50));
   const dateRangeResult1 = createDateRangeAnalysisResult(multipleUserContributions);
-  console.log(formatAnalysisResult(dateRangeResult1, {}));
+  console.info(formatAnalysisResult(dateRangeResult1, {}));
 
-  console.log('\n📋 TEST 4: Date Range Analysis (With AI emails)');
-  console.log('-'.repeat(50));
+  console.info('\n📋 TEST 4: Date Range Analysis (With AI emails)');
+  console.info('-'.repeat(50));
   const dateRangeResult2 = createDateRangeAnalysisResult(multipleUserContributions, new Set(['ai@example.com']));
   const exclusionOptions: ExclusionOptions = {
     aiEmails: new Set(['ai@example.com']),
     excludeFiles: ['*.md', 'test/**'],
     excludeUsers: ['bot-user'],
   };
-  console.log(formatAnalysisResult(dateRangeResult2, exclusionOptions));
+  console.info(formatAnalysisResult(dateRangeResult2, exclusionOptions));
 
-  console.log('\n📋 TEST 5: Empty Contributions');
-  console.log('-'.repeat(50));
+  console.info('\n📋 TEST 5: Empty Contributions');
+  console.info('-'.repeat(50));
   const emptyPRResult = createPRAnalysisResult([]);
-  console.log(formatAnalysisResult(emptyPRResult, {}));
+  console.info(formatAnalysisResult(emptyPRResult, {}));
 
-  console.log('\n📋 TEST 6: Date Range with Empty Contributions');
-  console.log('-'.repeat(50));
+  console.info('\n📋 TEST 6: Date Range with Empty Contributions');
+  console.info('-'.repeat(50));
   const emptyDateRangeResult = createDateRangeAnalysisResult([]);
-  console.log(formatAnalysisResult(emptyDateRangeResult, {}));
+  console.info(formatAnalysisResult(emptyDateRangeResult, {}));
 
-  console.log('\n📋 TEST 7: PR Numbers Analysis (Basic)');
-  console.log('-'.repeat(50));
+  console.info('\n📋 TEST 7: PR Numbers Analysis (Basic)');
+  console.info('-'.repeat(50));
   const prNumbersResult1 = createPRNumbersAnalysisResult(multipleUserContributions);
-  console.log(formatAnalysisResult(prNumbersResult1, {}));
+  console.info(formatAnalysisResult(prNumbersResult1, {}));
 
-  console.log('\n📋 TEST 8: PR Numbers Analysis (With AI emails)');
-  console.log('-'.repeat(50));
+  console.info('\n📋 TEST 8: PR Numbers Analysis (With AI emails)');
+  console.info('-'.repeat(50));
   const prNumbersResult2 = createPRNumbersAnalysisResult(multipleUserContributions, new Set(['ai@example.com']));
-  console.log(formatAnalysisResult(prNumbersResult2, exclusionOptions));
+  console.info(formatAnalysisResult(prNumbersResult2, exclusionOptions));
 
-  console.log(`\n${'='.repeat(80)}`);
-  console.log('✅ All tests completed successfully!');
+  console.info(`\n${'='.repeat(80)}`);
+  console.info('✅ All tests completed successfully!');
 }
 
 runTests();

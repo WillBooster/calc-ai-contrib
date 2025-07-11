@@ -28,23 +28,23 @@ export function createProgressBar(percentage: number, length: number = 16): stri
  * Log exclusion options if any are provided
  */
 export function logExclusionOptions(options: ExclusionOptions, ansiColors: typeof ansis): void {
-  console.log(ansiColors.dim('\nOptions:'));
+  console.info(ansiColors.dim('\nOptions:'));
   if (options.excludeFiles?.length) {
-    console.log(ansiColors.dim(`  Exclude files: ${options.excludeFiles.join(', ')}`));
+    console.info(ansiColors.dim(`  Exclude files: ${options.excludeFiles.join(', ')}`));
   }
   if (options.excludeUsers?.length) {
-    console.log(ansiColors.dim(`  Exclude users: ${options.excludeUsers.join(', ')}`));
+    console.info(ansiColors.dim(`  Exclude users: ${options.excludeUsers.join(', ')}`));
   }
   if (options.excludeEmails?.length) {
-    console.log(ansiColors.dim(`  Exclude emails: ${options.excludeEmails.join(', ')}`));
+    console.info(ansiColors.dim(`  Exclude emails: ${options.excludeEmails.join(', ')}`));
   }
   if (options.excludeCommitMessages?.length) {
-    console.log(ansiColors.dim(`  Exclude commit messages containing: ${options.excludeCommitMessages.join(', ')}`));
+    console.info(ansiColors.dim(`  Exclude commit messages containing: ${options.excludeCommitMessages.join(', ')}`));
   }
   if (options.aiEmails?.size) {
-    console.log(ansiColors.dim(`  AI emails: ${Array.from(options.aiEmails).join(', ')}`));
+    console.info(ansiColors.dim(`  AI emails: ${Array.from(options.aiEmails).join(', ')}`));
   }
-  console.log('');
+  console.info('');
 }
 
 export function formatAnalysisResult(
