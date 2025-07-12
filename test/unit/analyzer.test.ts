@@ -391,9 +391,9 @@ Co-authored-by: AI Assistant <ai@willbooster.com>`;
 
     expect(result.totalPRs).toBe(3);
     expect(result.prNumbers).toEqual([55, 56, 57]);
-    expect(result.totalAdditions).toBeGreaterThan(0);
-    expect(result.totalDeletions).toBeGreaterThan(0);
-    expect(result.totalEditLines).toBeGreaterThan(0);
-    expect(result.userContributions.length).toBeGreaterThan(0);
+    expect(result.totalAdditions).toBe(35);
+    expect(result.totalDeletions).toBe(61);
+    expect(result.totalEditLines).toBe(96);
+    expect(result.userContributions.length).toBe(2);
   }, 60000);
 });
