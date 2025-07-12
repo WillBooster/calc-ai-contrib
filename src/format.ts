@@ -165,8 +165,13 @@ function formatIndividualContributions(
       const userBar = createProgressBar(contribution.percentage);
 
       lines.push(`${userInfo}:`);
+
+      // Calculate total additions and deletions (individual + pair)
+      const totalAdditions = contribution.additions + contribution.pairAdditions;
+      const totalDeletions = contribution.deletions + contribution.pairDeletions;
+
       lines.push(
-        `  [${userBar}] ${contribution.percentage.toLocaleString().padStart(3)}% | ${contribution.totalLines.toLocaleString().padStart(8)} Edits: (+${contribution.additions.toLocaleString()} / -${contribution.deletions.toLocaleString()})`
+        `  [${userBar}] ${contribution.percentage.toLocaleString().padStart(3)}% | ${contribution.totalLines.toLocaleString().padStart(8)} Edits: (+${totalAdditions.toLocaleString()} / -${totalDeletions.toLocaleString()})`
       );
 
       // Show Pair vs Human ratio if there are both pair and solo contributions
