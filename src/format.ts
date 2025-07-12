@@ -168,6 +168,19 @@ function formatIndividualContributions(
       lines.push(
         `  [${userBar}] ${contribution.percentage.toLocaleString().padStart(3)}% | ${contribution.totalLines.toLocaleString().padStart(8)} Edits: (+${contribution.additions.toLocaleString()} / -${contribution.deletions.toLocaleString()})`
       );
+
+      // Show Pair vs Human ratio if there are both pair and solo contributions
+      if (contribution.pairLines > 0 && contribution.soloLines > 0) {
+        const pairBar = createProgressBar(contribution.pairPercentage, 12);
+        lines.push(
+          `    Pair vs Human: [${pairBar}] ${contribution.pairPercentage}% Pair / ${contribution.soloPercentage}% Human`
+        );
+      } else if (contribution.pairLines > 0) {
+        lines.push('    100% Pair Programming');
+      } else if (contribution.soloLines > 0) {
+        lines.push('    100% Individual Work');
+      }
+
       lines.push('');
     }
   }
