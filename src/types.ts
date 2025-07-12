@@ -11,6 +11,8 @@ export interface ExclusionOptions {
 export interface UserStats {
   additions: number;
   deletions: number;
+  pairAdditions: number;
+  pairDeletions: number;
   name?: string;
   email?: string;
 }
@@ -31,8 +33,14 @@ export interface UserContribution {
   email?: string;
   additions: number;
   deletions: number;
+  pairAdditions: number;
+  pairDeletions: number;
   totalLines: number;
+  pairLines: number;
+  soloLines: number;
   percentage: number;
+  pairPercentage: number;
+  soloPercentage: number;
 }
 
 export interface ContributionStats {

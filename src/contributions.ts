@@ -36,12 +36,16 @@ export function mergeUserStats(aggregatedStats: Map<string, UserStats>, author: 
   const currentStats = aggregatedStats.get(author) || {
     additions: 0,
     deletions: 0,
+    pairAdditions: 0,
+    pairDeletions: 0,
     name: stats.name,
     email: stats.email,
   };
 
   currentStats.additions += stats.additions;
   currentStats.deletions += stats.deletions;
+  currentStats.pairAdditions += stats.pairAdditions;
+  currentStats.pairDeletions += stats.pairDeletions;
 
   // Update name and email if not already set
   if (!currentStats.name && stats.name) {
@@ -62,15 +66,27 @@ export function convertToUserContributions(
   totalEditLines: number
 ): UserContribution[] {
   return Array.from(aggregatedStats.entries())
-    .map(([user, stats]) => ({
-      user,
-      name: stats.name,
-      email: stats.email,
-      additions: stats.additions,
-      deletions: stats.deletions,
-      totalLines: stats.additions + stats.deletions,
-      percentage: totalEditLines > 0 ? Math.round(((stats.additions + stats.deletions) / totalEditLines) * 100) : 0,
-    }))
+    .map(([user, stats]) => {
+      const soloLines = stats.additions + stats.deletions;
+      const pairLines = stats.pairAdditions + stats.pairDeletions;
+      const userTotalLines = soloLines + pairLines;
+
+      return {
+        user,
+        name: stats.name,
+        email: stats.email,
+        additions: stats.additions,
+        deletions: stats.deletions,
+        pairAdditions: stats.pairAdditions,
+        pairDeletions: stats.pairDeletions,
+        totalLines: userTotalLines,
+        pairLines,
+        soloLines,
+        percentage: totalEditLines > 0 ? Math.round((userTotalLines / totalEditLines) * 100) : 0,
+        pairPercentage: userTotalLines > 0 ? Math.round((pairLines / userTotalLines) * 100) : 0,
+        soloPercentage: userTotalLines > 0 ? Math.round((soloLines / userTotalLines) * 100) : 0,
+      };
+    })
     .sort((a, b) => b.totalLines - a.totalLines);
 }
 
@@ -132,7 +148,12 @@ export function distributeFileContributionsWithPairTracking(
   let pairDeletions = 0;
 
   if (commits.length === 0) {
-    userContributions.set('Unknown', { additions: file.additions, deletions: file.deletions });
+    userContributions.set('Unknown', {
+      additions: file.additions,
+      deletions: file.deletions,
+      pairAdditions: 0,
+      pairDeletions: 0,
+    });
     return { userContributions, pairContributions: { additions: 0, deletions: 0 } };
   }
 
@@ -160,6 +181,54 @@ export function distributeFileContributionsWithPairTracking(
     const pairRatio = pairCommits.length / commits.length;
     pairAdditions = Math.floor(file.additions * pairRatio);
     pairDeletions = Math.floor(file.deletions * pairRatio);
+
+    // Attribute pair programming contributions to individual users
+    // Only attribute to the main author (not co-authors) to maintain consistency with global stats
+    const pairAuthorsMap = new Map<string, Pick<UserStats, 'name' | 'email'>>();
+
+    for (const commit of pairCommits) {
+      const authorLogin = commit.author?.login;
+      const author = authorLogin || commit.commit?.author?.name || 'Unknown';
+      const name = commit.commit?.author?.name || undefined;
+      const email = commit.commit?.author?.email || undefined;
+
+      if (!pairAuthorsMap.has(author)) {
+        pairAuthorsMap.set(author, { name, email });
+      }
+    }
+
+    const pairAuthors = Array.from(pairAuthorsMap.keys());
+    if (pairAuthors.length > 0) {
+      const pairAdditionsPerAuthor = Math.floor(pairAdditions / pairAuthors.length);
+      const pairDeletionsPerAuthor = Math.floor(pairDeletions / pairAuthors.length);
+
+      for (let i = 0; i < pairAuthors.length; i++) {
+        const author = pairAuthors[i];
+        const authorInfo = pairAuthorsMap.get(author);
+        const isLast = i === pairAuthors.length - 1;
+
+        const authorPairAdditions = isLast
+          ? pairAdditions - pairAdditionsPerAuthor * (pairAuthors.length - 1)
+          : pairAdditionsPerAuthor;
+        const authorPairDeletions = isLast
+          ? pairDeletions - pairDeletionsPerAuthor * (pairAuthors.length - 1)
+          : pairDeletionsPerAuthor;
+
+        const existingStats = userContributions.get(author) || {
+          additions: 0,
+          deletions: 0,
+          pairAdditions: 0,
+          pairDeletions: 0,
+          name: authorInfo?.name,
+          email: authorInfo?.email,
+        };
+
+        existingStats.pairAdditions += authorPairAdditions;
+        existingStats.pairDeletions += authorPairDeletions;
+
+        userContributions.set(author, existingStats);
+      }
+    }
   }
 
   // Calculate contributions for non-pair programming commits
@@ -192,12 +261,19 @@ export function distributeFileContributionsWithPairTracking(
       const additions = isLast ? nonPairAdditions - additionsPerAuthor * (authors.length - 1) : additionsPerAuthor;
       const deletions = isLast ? nonPairDeletions - deletionsPerAuthor * (authors.length - 1) : deletionsPerAuthor;
 
-      userContributions.set(author, {
-        additions,
-        deletions,
+      const existingStats = userContributions.get(author) || {
+        additions: 0,
+        deletions: 0,
+        pairAdditions: 0,
+        pairDeletions: 0,
         name: authorInfo?.name,
         email: authorInfo?.email,
-      });
+      };
+
+      existingStats.additions += additions;
+      existingStats.deletions += deletions;
+
+      userContributions.set(author, existingStats);
     }
   }
 
