@@ -123,6 +123,10 @@ function formatDetailedBreakdown(result: BaseAnalysisResult, hasAIEmails: boolea
   if (hasAIEmails) {
     lines.push('📊 DETAILED BREAKDOWN');
     lines.push('─'.repeat(40));
+    lines.push('🤖 AI: Commits authored by AI assistants');
+    lines.push('🤝 Pair: Commits with both AI and human co-authors');
+    lines.push('👥 Human: Commits authored by humans only');
+    lines.push('');
 
     // Create progress bars for each category
     const aiBar = createProgressBar(result.aiContributions.percentage);
