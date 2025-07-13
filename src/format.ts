@@ -123,9 +123,6 @@ function formatDetailedBreakdown(result: BaseAnalysisResult, hasAIEmails: boolea
   if (hasAIEmails) {
     lines.push('📊 DETAILED BREAKDOWN');
     lines.push('─'.repeat(40));
-    lines.push('🤖 AI: Commits authored by AI assistants');
-    lines.push('🤝 Pair: Commits with both AI and human co-authors');
-    lines.push('👥 Human: Commits authored by humans only');
     lines.push('');
 
     // Create progress bars for each category
@@ -134,16 +131,17 @@ function formatDetailedBreakdown(result: BaseAnalysisResult, hasAIEmails: boolea
     const humanBar = createProgressBar(result.humanContributions.percentage);
 
     lines.push(
-      `🤖 AI   : [${aiBar}] ${result.aiContributions.percentage.toString().padStart(3)}% | ${result.aiContributions.totalEditLines.toLocaleString().padStart(8)} Edits (+${result.aiContributions.totalAdditions.toLocaleString()} / -${result.aiContributions.totalDeletions.toLocaleString()})`
+      `🤖 AI   : [${aiBar}] ${result.aiContributions.percentage.toString().padStart(3)}% | ${result.aiContributions.totalEditLines.toLocaleString().padStart(8)} edits (+${result.aiContributions.totalAdditions.toLocaleString()} / -${result.aiContributions.totalDeletions.toLocaleString()})`
     );
     if (result.pairContributions.percentage > 0) {
       lines.push(
-        `🤝 Pair : [${pairBar}] ${result.pairContributions.percentage.toString().padStart(3)}% | ${result.pairContributions.totalEditLines.toLocaleString().padStart(8)} Edits (+${result.pairContributions.totalAdditions.toLocaleString()} / -${result.pairContributions.totalDeletions.toLocaleString()})`
+        `🤝 Pair : [${pairBar}] ${result.pairContributions.percentage.toString().padStart(3)}% | ${result.pairContributions.totalEditLines.toLocaleString().padStart(8)} edits (+${result.pairContributions.totalAdditions.toLocaleString()} / -${result.pairContributions.totalDeletions.toLocaleString()})`
       );
     }
     lines.push(
-      `👥 Human: [${humanBar}] ${result.humanContributions.percentage.toString().padStart(3)}% | ${result.humanContributions.totalEditLines.toLocaleString().padStart(8)} Edits (+${result.humanContributions.totalAdditions.toLocaleString()} / -${result.humanContributions.totalDeletions.toLocaleString()})`
+      `👥 Human: [${humanBar}] ${result.humanContributions.percentage.toString().padStart(3)}% | ${result.humanContributions.totalEditLines.toLocaleString().padStart(8)} edits (+${result.humanContributions.totalAdditions.toLocaleString()} / -${result.humanContributions.totalDeletions.toLocaleString()})`
     );
+    lines.push('🤖, 🤝, and 👥 represent contributions as identified by commit authors.');
 
     lines.push('');
   }
@@ -175,7 +173,7 @@ function formatIndividualContributions(
       const totalDeletions = contribution.deletions + contribution.pairDeletions;
 
       lines.push(
-        `  [${userBar}] ${contribution.percentage.toLocaleString().padStart(3)}% | ${contribution.totalLines.toLocaleString().padStart(8)} Edits: (+${totalAdditions.toLocaleString()} / -${totalDeletions.toLocaleString()})`
+        `  [${userBar}] ${contribution.percentage.toLocaleString().padStart(3)}% | ${contribution.totalLines.toLocaleString().padStart(8)} edits: (+${totalAdditions.toLocaleString()} / -${totalDeletions.toLocaleString()})`
       );
 
       // Show Pair vs Human ratio if there are both pair and solo contributions
