@@ -27,7 +27,7 @@
   "prettier": "@willbooster/prettier-config",
   "dependencies": {},
   "devDependencies": {
-    "@biomejs/biome": "2.1.1",
+    "@biomejs/biome": "2.1.2",
     "@octokit/types": "14.1.0",
     "@types/bun": "1.2.18",
     "@types/micromatch": "4.0.9",
