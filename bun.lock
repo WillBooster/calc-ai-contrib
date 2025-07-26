@@ -11,7 +11,7 @@
         "@types/yargs": "17.0.33",
         "@willbooster/biome-config": "3.2.0",
         "@willbooster/prettier-config": "10.2.0",
-        "@willbooster/wb": "9.0.2",
+        "@willbooster/wb": "9.0.3",
         "ansis": "4.1.0",
         "build-ts": "15.0.14",
         "conventional-changelog-conventionalcommits": "9.1.0",
@@ -496,7 +496,7 @@
 
     "@willbooster/shared-lib-node": ["@willbooster/shared-lib-node@7.0.2", "", { "dependencies": { "dotenv": "17.2.0", "tree-kill": "1.2.2" } }, "sha512-cGe1wJyKMszDCZjgrdLE60nEyIfpqbAf8x9JcvAY65TmL2RuTtvFu476KI9xl7tFf8gHiey2pfMBYM27lynqTA=="],
 
-    "@willbooster/wb": ["@willbooster/wb@9.0.2", "", { "dependencies": { "chalk": "5.4.1", "dotenv": "17.2.0", "globby": "14.1.0", "kill-port": "2.0.1", "minimal-promise-pool": "5.0.0", "tree-kill": "1.2.2", "yargs": "18.0.0" }, "bin": { "wb": "bin/index.js" } }, "sha512-3Xw7SAzGdslrLSYV40QFMhuVoo8Uplk0Q+lu6glMYKWSL66ZLwrrerK42RrWReme0D7c6Qc3BAE9ilg7v4SxrA=="],
+    "@willbooster/wb": ["@willbooster/wb@9.0.3", "", { "dependencies": { "chalk": "5.4.1", "dotenv": "17.2.1", "globby": "14.1.0", "kill-port": "2.0.1", "minimal-promise-pool": "5.0.0", "tree-kill": "1.2.2", "yargs": "18.0.0" }, "bin": { "wb": "bin/index.js" } }, "sha512-O3llP6YrmDQ7IacbvvS4aTeqcZPo1B/zn57Gu8UhAlAsRNOPwixPJADJ4bvGRG+kvieLLqtSYo6PLY3yiwN/XQ=="],
 
     "acorn": ["acorn@8.15.0", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-NZyJarBfL7nWwIq+FDL6Zp/yHEhePMNnnJ0y3qfieCrmNvYct8uvtiV41UvlSe6apAfk0fY1FbWx+NwfmpvtTg=="],
 
@@ -1175,8 +1175,6 @@
     "@semantic-release/release-notes-generator/get-stream": ["get-stream@7.0.1", "", {}, "sha512-3M8C1EOFN6r8AMUhwUAACIoXZJEOufDU5+0gFFN5uNs6XYOralD2Pqkl7m046va6x77FwposWXbAhPPIOus7mQ=="],
 
     "@willbooster/shared-lib-node/dotenv": ["dotenv@17.2.0", "", {}, "sha512-Q4sgBT60gzd0BB0lSyYD3xM4YxrXA9y4uBDof1JNYGzOXrQdQ6yX+7XIAqoFOGQFOTK1D3Hts5OllpxMDZFONQ=="],
-
-    "@willbooster/wb/dotenv": ["dotenv@17.2.0", "", {}, "sha512-Q4sgBT60gzd0BB0lSyYD3xM4YxrXA9y4uBDof1JNYGzOXrQdQ6yX+7XIAqoFOGQFOTK1D3Hts5OllpxMDZFONQ=="],
 
     "babel-plugin-polyfill-corejs2/semver": ["semver@6.3.1", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA=="],
 
