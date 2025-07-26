@@ -38,7 +38,7 @@
     "ansis": "4.1.0",
     "build-ts": "15.0.14",
     "conventional-changelog-conventionalcommits": "9.1.0",
-    "dotenv": "17.2.0",
+    "dotenv": "17.2.1",
     "lefthook": "1.12.2",
     "octokit": "5.0.3",
     "prettier": "3.6.2",
