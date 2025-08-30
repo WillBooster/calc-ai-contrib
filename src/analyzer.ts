@@ -1,3 +1,4 @@
+import * as child_process from 'node:child_process';
 import { config } from 'dotenv';
 import { Octokit } from 'octokit';
 import { calculateContributionStats, convertToUserContributions, processFileContributions } from './contributions.js';
@@ -14,8 +15,17 @@ import type { Repository } from './utils.js';
 
 config();
 
+const token =
+  process.env.GH_TOKEN ||
+  process.env.GITHUB_TOKEN ||
+  child_process.spawnSync('gh', ['auth', 'token'], { encoding: 'utf-8' }).stdout.trim();
+if (!token) {
+  throw new Error(
+    'GitHub token not found. Please set GH_TOKEN or GITHUB_TOKEN environment variable, or authenticate with gh CLI'
+  );
+}
 const octokit = new Octokit({
-  auth: process.env.GH_TOKEN,
+  auth: token,
 });
 
 export async function analyzePullRequestsByDateRangeMultiRepo(
