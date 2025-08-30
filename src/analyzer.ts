@@ -88,8 +88,7 @@ async function analyzePullRequestsCore(
       allPrNumbers.push(...prNumbers);
 
       logger.progress(`Analyzing ${prNumbers.length} PRs...`);
-      for (let i = 0; i < prNumbers.length; i++) {
-        const prNumber = prNumbers[i];
+      for (const [i, prNumber] of prNumbers.entries()) {
         logger.log(`\n[${i + 1}/${prNumbers.length}] Analyzing PR #${prNumber}...`);
 
         try {
