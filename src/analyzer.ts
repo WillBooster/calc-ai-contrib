@@ -1,3 +1,4 @@
+import * as child_process from 'node:child_process';
 import { config } from 'dotenv';
 import { Octokit } from 'octokit';
 import { calculateContributionStats, convertToUserContributions, processFileContributions } from './contributions.js';
@@ -15,7 +16,10 @@ import type { Repository } from './utils.js';
 config();
 
 const octokit = new Octokit({
-  auth: process.env.GH_TOKEN,
+  auth:
+    process.env.GH_TOKEN ||
+    process.env.GITHUB_TOKEN ||
+    child_process.spawnSync('gh', ['auth', 'token'], { encoding: 'utf-8' }).stdout.trim(),
 });
 
 export async function analyzePullRequestsByDateRangeMultiRepo(
