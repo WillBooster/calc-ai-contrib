@@ -15,11 +15,17 @@ import type { Repository } from './utils.js';
 
 config();
 
+const token =
+  process.env.GH_TOKEN ||
+  process.env.GITHUB_TOKEN ||
+  child_process.spawnSync('gh', ['auth', 'token'], { encoding: 'utf-8' }).stdout.trim();
+if (!token) {
+  throw new Error(
+    'GitHub token not found. Please set GH_TOKEN or GITHUB_TOKEN environment variable, or authenticate with gh CLI'
+  );
+}
 const octokit = new Octokit({
-  auth:
-    process.env.GH_TOKEN ||
-    process.env.GITHUB_TOKEN ||
-    child_process.spawnSync('gh', ['auth', 'token'], { encoding: 'utf-8' }).stdout.trim(),
+  auth: token,
 });
 
 export async function analyzePullRequestsByDateRangeMultiRepo(
