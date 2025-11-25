@@ -202,7 +202,8 @@ export function distributeFileContributionsWithPairTracking(
       const pairAdditionsPerAuthor = Math.floor(pairAdditions / pairAuthors.length);
       const pairDeletionsPerAuthor = Math.floor(pairDeletions / pairAuthors.length);
 
-      for (const [i, author] of pairAuthors.entries()) {
+      for (let i = 0; i < pairAuthors.length; i++) {
+        const author = pairAuthors[i];
         const authorInfo = pairAuthorsMap.get(author);
         const isLast = i === pairAuthors.length - 1;
 
@@ -252,7 +253,8 @@ export function distributeFileContributionsWithPairTracking(
     const additionsPerAuthor = Math.floor(nonPairAdditions / authors.length);
     const deletionsPerAuthor = Math.floor(nonPairDeletions / authors.length);
 
-    for (const [i, author] of authors.entries()) {
+    for (let i = 0; i < authors.length; i++) {
+      const author = authors[i];
       const authorInfo = authorsMap.get(author);
       const isLast = i === authors.length - 1;
 

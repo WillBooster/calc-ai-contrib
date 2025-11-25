@@ -108,13 +108,13 @@ describe('GitHub PR Analyzer', () => {
     expect(resultWithUserExclusion.totalDeletions).toBe(47);
     expect(resultWithUserExclusion.totalEditLines).toBe(153);
     expect(resultWithUserExclusion.userContributions.length).toBe(1);
-    expect(resultWithUserExclusion.userContributions[0]?.user).toBe('exKAZUu');
-    expect(resultWithUserExclusion.userContributions[0]?.additions).toBe(106);
-    expect(resultWithUserExclusion.userContributions[0]?.deletions).toBe(47);
-    expect(resultWithUserExclusion.userContributions[0]?.totalLines).toBe(153);
-    expect(resultWithUserExclusion.userContributions[0]?.percentage).toBe(100);
-    expect(resultWithUserExclusion.userContributions[0]?.name).toBe('Sakamoto, Kazunori');
-    expect(resultWithUserExclusion.userContributions[0]?.email).toBe('exkazuu@gmail.com');
+    expect(resultWithUserExclusion.userContributions[0].user).toBe('exKAZUu');
+    expect(resultWithUserExclusion.userContributions[0].additions).toBe(106);
+    expect(resultWithUserExclusion.userContributions[0].deletions).toBe(47);
+    expect(resultWithUserExclusion.userContributions[0].totalLines).toBe(153);
+    expect(resultWithUserExclusion.userContributions[0].percentage).toBe(100);
+    expect(resultWithUserExclusion.userContributions[0].name).toBe('Sakamoto, Kazunori');
+    expect(resultWithUserExclusion.userContributions[0].email).toBe('exkazuu@gmail.com');
 
     // Test excluding files with glob pattern
     const resultWithFileExclusion = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate, {
@@ -161,13 +161,13 @@ describe('GitHub PR Analyzer', () => {
     expect(resultWithMultipleExclusions.totalDeletions).toBe(47);
     expect(resultWithMultipleExclusions.totalEditLines).toBe(152);
     expect(resultWithMultipleExclusions.userContributions.length).toBe(1);
-    expect(resultWithMultipleExclusions.userContributions[0]?.user).toBe('exKAZUu');
-    expect(resultWithMultipleExclusions.userContributions[0]?.additions).toBe(105);
-    expect(resultWithMultipleExclusions.userContributions[0]?.deletions).toBe(47);
-    expect(resultWithMultipleExclusions.userContributions[0]?.totalLines).toBe(152);
-    expect(resultWithMultipleExclusions.userContributions[0]?.percentage).toBe(100);
-    expect(resultWithMultipleExclusions.userContributions[0]?.name).toBe('Sakamoto, Kazunori');
-    expect(resultWithMultipleExclusions.userContributions[0]?.email).toBe('exkazuu@gmail.com');
+    expect(resultWithMultipleExclusions.userContributions[0].user).toBe('exKAZUu');
+    expect(resultWithMultipleExclusions.userContributions[0].additions).toBe(105);
+    expect(resultWithMultipleExclusions.userContributions[0].deletions).toBe(47);
+    expect(resultWithMultipleExclusions.userContributions[0].totalLines).toBe(152);
+    expect(resultWithMultipleExclusions.userContributions[0].percentage).toBe(100);
+    expect(resultWithMultipleExclusions.userContributions[0].name).toBe('Sakamoto, Kazunori');
+    expect(resultWithMultipleExclusions.userContributions[0].email).toBe('exkazuu@gmail.com');
 
     // Test excluding by email
     const resultWithEmailExclusion = await analyzePullRequestsByDateRangeMultiRepo(repositories, startDate, endDate, {
@@ -180,8 +180,8 @@ describe('GitHub PR Analyzer', () => {
     expect(resultWithEmailExclusion.totalDeletions).toBe(47);
     expect(resultWithEmailExclusion.totalEditLines).toBe(153);
     expect(resultWithEmailExclusion.userContributions.length).toBe(1);
-    expect(resultWithEmailExclusion.userContributions[0]?.user).toBe('exKAZUu');
-    expect(resultWithEmailExclusion.userContributions[0]?.percentage).toBe(100);
+    expect(resultWithEmailExclusion.userContributions[0].user).toBe('exKAZUu');
+    expect(resultWithEmailExclusion.userContributions[0].percentage).toBe(100);
   }, 60000);
 
   test('analyze PR with AI emails for human vs AI breakdown', async () => {
