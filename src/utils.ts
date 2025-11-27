@@ -11,8 +11,8 @@ export interface Repository {
  */
 export function parseRepositories(repos: string[]): Repository[] {
   return repos.map((repoSpec) => {
-    const [owner, repo] = repoSpec.split('/');
-    return { owner, repo };
+    const parts = repoSpec.split('/');
+    return { owner: parts[0] ?? '', repo: parts[1] ?? '' };
   });
 }
 

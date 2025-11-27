@@ -88,9 +88,8 @@ async function analyzePullRequestsCore(
       allPrNumbers.push(...prNumbers);
 
       logger.progress(`Analyzing ${prNumbers.length} PRs...`);
-      for (let i = 0; i < prNumbers.length; i++) {
-        const prNumber = prNumbers[i];
-        logger.log(`\n[${i + 1}/${prNumbers.length}] Analyzing PR #${prNumber}...`);
+      for (const prNumber of prNumbers) {
+        logger.log(`\n[${prNumbers.indexOf(prNumber) + 1}/${prNumbers.length}] Analyzing PR #${prNumber}...`);
 
         try {
           const filesResponse = await octokit.rest.pulls.listFiles({
