@@ -18,6 +18,11 @@ const octokit = new Octokit({
   auth: process.env.GH_TOKEN,
 });
 
+// Cache GitHub API responses to avoid exhausting rate limits during repeated analyses
+const prNumbersCache = new Map<string, number[]>();
+const prFilesCache = new Map<string, Awaited<ReturnType<typeof octokit.rest.pulls.listFiles>>['data']>();
+const prCommitsCache = new Map<string, GitHubCommit[]>();
+
 export async function analyzePullRequestsByDateRangeMultiRepo(
   repositories: Repository[],
   startDate: string,
@@ -92,13 +97,7 @@ async function analyzePullRequestsCore(
         logger.log(`\n[${prNumbers.indexOf(prNumber) + 1}/${prNumbers.length}] Analyzing PR #${prNumber}...`);
 
         try {
-          const filesResponse = await octokit.rest.pulls.listFiles({
-            owner,
-            repo,
-            pull_number: prNumber,
-          });
-
-          const files = filesResponse.data;
+          const files = await getPRFiles(owner, repo, prNumber, logger);
           logger.log(`Analyzing ${files.length} changed files...`);
 
           logger.log('Fetching PR commits...');
@@ -178,6 +177,13 @@ async function analyzePullRequestsCore(
 }
 
 async function getPRCommits(owner: string, repo: string, prNumber: number, logger: Logger): Promise<GitHubCommit[]> {
+  const cacheKey = `${owner}/${repo}#${prNumber}:commits`;
+  const cachedCommits = prCommitsCache.get(cacheKey);
+  if (cachedCommits) {
+    logger.log('Using cached PR commits');
+    return cachedCommits;
+  }
+
   logger.log('Making single API call to get PR commits...');
   const commitsResponse = await octokit.rest.pulls.listCommits({
     owner,
@@ -186,9 +192,29 @@ async function getPRCommits(owner: string, repo: string, prNumber: number, logge
   });
 
   const commits = commitsResponse.data;
+  prCommitsCache.set(cacheKey, commits);
   logger.log(`Retrieved ${commits.length} commits from API`);
 
   return commits;
+}
+
+async function getPRFiles(owner: string, repo: string, prNumber: number, logger: Logger) {
+  const cacheKey = `${owner}/${repo}#${prNumber}:files`;
+  const cachedFiles = prFilesCache.get(cacheKey);
+  if (cachedFiles) {
+    logger.log('Using cached PR files');
+    return cachedFiles;
+  }
+
+  logger.log('Making single API call to get PR files...');
+  const filesResponse = await octokit.rest.pulls.listFiles({
+    owner,
+    repo,
+    pull_number: prNumber,
+  });
+
+  prFilesCache.set(cacheKey, filesResponse.data);
+  return filesResponse.data;
 }
 
 async function findPRsByDateRange(
@@ -198,6 +224,13 @@ async function findPRsByDateRange(
   endDate: string,
   logger: Logger
 ): Promise<number[]> {
+  const cacheKey = `${owner}/${repo}:${startDate}-${endDate}`;
+  const cachedNumbers = prNumbersCache.get(cacheKey);
+  if (cachedNumbers) {
+    logger.log('Using cached PR numbers');
+    return cachedNumbers;
+  }
+
   logger.log(`Searching for PRs between ${startDate} and ${endDate}...`);
 
   const prNumbers: number[] = [];
@@ -252,7 +285,9 @@ async function findPRsByDateRange(
   }
 
   logger.log(`Found ${prNumbers.length} PRs in the specified date range`);
-  return prNumbers.sort((a, b) => a - b);
+  const sortedPrNumbers = prNumbers.sort((a, b) => a - b);
+  prNumbersCache.set(cacheKey, sortedPrNumbers);
+  return sortedPrNumbers;
 }
 
 function showProgressIndicator(verbose: boolean, prCount: number): void {
