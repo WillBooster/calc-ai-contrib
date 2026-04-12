@@ -27,7 +27,7 @@
   "prettier": "@willbooster/prettier-config",
   "dependencies": {
     "ansis": "4.2.0",
-    "dotenv": "17.3.1",
+    "dotenv": "17.4.1",
     "micromatch": "4.0.8",
     "octokit": "5.0.5",
     "yargs": "18.0.0"
@@ -40,7 +40,7 @@
     "@types/yargs": "17.0.35",
     "@willbooster/biome-config": "3.3.0",
     "@willbooster/prettier-config": "10.3.0",
-    "@willbooster/wb": "13.5.0",
+    "@willbooster/wb": "13.8.1",
     "build-ts": "17.0.24",
     "conventional-changelog-conventionalcommits": "9.3.1",
     "lefthook": "2.1.4",
